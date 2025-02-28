@@ -42,12 +42,17 @@ export function ScrapeForm() {
   const defaultAiInstructions = 
     "Extract and clean business information from the provided HTML. " +
     "Identify the business name, phone number, email, address, website, " +
-    "description, and category. Format the data consistently and fill in " +
+    "city, state, industry/niche, description, and category. Format the data consistently and fill in " +
     "missing information where possible.";
   
   const form = useForm({
     defaultValues: {
       url: "https://www.yellowpages.com/search?search_terms=restaurants&geo_location_terms=New+York%2C+NY",
+      location: {
+        city: "",
+        state: ""
+      },
+      industry: "",
       selectors: {
         container: ".business-card",
         name: ".business-name",
@@ -55,7 +60,10 @@ export function ScrapeForm() {
         address: ".address",
         website: ".website",
         description: ".description",
-        category: ".category"
+        category: ".category",
+        city: ".city",
+        state: ".state",
+        industry: ".industry"
       },
       model: "gpt-4o-mini" as AIModel,
       instructions: defaultAiInstructions
@@ -69,9 +77,38 @@ export function ScrapeForm() {
         status: "loading"
       });
       
+      // Build search URL with filters if specified
+      let searchUrl = values.url;
+      
+      // If using Yellow Pages or similar directory, automatically format the URL with filters
+      if (searchUrl.includes("yellowpages.com") || searchUrl.includes("yelp.com")) {
+        const baseUrl = searchUrl.split("?")[0];
+        const industry = values.industry ? encodeURIComponent(values.industry) : "businesses";
+        let location = "";
+        
+        if (values.location.city && values.location.state) {
+          location = `${values.location.city}%2C+${values.location.state}`;
+        } else if (values.location.state) {
+          location = values.location.state;
+        } else if (values.location.city) {
+          location = values.location.city;
+        }
+        
+        if (location) {
+          searchUrl = `${baseUrl}search?search_terms=${industry}&geo_location_terms=${location}`;
+        } else {
+          searchUrl = `${baseUrl}search?search_terms=${industry}`;
+        }
+      }
+      
       // Configure scraping
       const scrapeConfig: ScrapeConfig = {
-        url: values.url,
+        url: searchUrl,
+        location: values.location.city || values.location.state ? {
+          city: values.location.city,
+          state: values.location.state
+        } : undefined,
+        industry: values.industry || undefined,
         selectors: values.selectors
       };
       
@@ -85,7 +122,7 @@ export function ScrapeForm() {
       // Start scraping
       toast({
         title: "Scraping started",
-        description: `Scraping data from ${values.url}`,
+        description: `Scraping data from ${searchUrl}`,
         duration: 3000
       });
       
@@ -160,6 +197,71 @@ export function ScrapeForm() {
                   )}
                 />
                 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="industry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-900 dark:text-gray-100">Industry/Niche</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. Restaurants, Plumbers, Lawyers"
+                            {...field}
+                            className="transition-all duration-200"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Specify the industry you want to target
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="location.city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-900 dark:text-gray-100">City</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. New York, Los Angeles"
+                            {...field}
+                            className="transition-all duration-200"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Filter by city (optional)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="location.state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-900 dark:text-gray-100">State</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. NY, CA, TX"
+                            {...field}
+                            className="transition-all duration-200"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Filter by state (optional)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
                 <div className="space-y-2">
                   <Accordion type="single" collapsible defaultValue="selectors">
                     <AccordionItem value="selectors">
@@ -233,6 +335,18 @@ export function ScrapeForm() {
                           />
                           <FormField
                             control={form.control}
+                            name="selectors.email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Selector</FormLabel>
+                                <FormControl>
+                                  <Input placeholder=".email" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
                             name="selectors.description"
                             render={({ field }) => (
                               <FormItem>
@@ -251,6 +365,30 @@ export function ScrapeForm() {
                                 <FormLabel>Category Selector</FormLabel>
                                 <FormControl>
                                   <Input placeholder=".category" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="selectors.city"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>City Selector</FormLabel>
+                                <FormControl>
+                                  <Input placeholder=".city" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="selectors.state"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>State Selector</FormLabel>
+                                <FormControl>
+                                  <Input placeholder=".state" {...field} />
                                 </FormControl>
                               </FormItem>
                             )}

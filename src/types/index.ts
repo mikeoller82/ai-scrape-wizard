@@ -7,6 +7,9 @@ export interface BusinessData {
   website?: string;
   description?: string;
   category?: string;
+  city?: string;
+  state?: string;
+  industry?: string;
   [key: string]: any;
 }
 
@@ -20,6 +23,11 @@ export type AIModel =
 
 export interface ScrapeConfig {
   url: string;
+  location?: {
+    city?: string;
+    state?: string;
+  };
+  industry?: string;
   selectors?: {
     container?: string;
     name?: string;
@@ -29,6 +37,9 @@ export interface ScrapeConfig {
     website?: string;
     description?: string;
     category?: string;
+    city?: string;
+    state?: string;
+    industry?: string;
     [key: string]: string | undefined;
   };
   dataFields?: string[];

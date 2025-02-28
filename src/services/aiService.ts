@@ -44,8 +44,46 @@ export const processWithAI = async (
         enhancedItem.category = "Food & Dining";
       } else if (description.includes("service") || description.includes("professional")) {
         enhancedItem.category = "Professional Services";
+      } else if (description.includes("plumbing") || description.includes("emergency")) {
+        enhancedItem.category = "Home Services";
+      } else if (description.includes("legal") || description.includes("law")) {
+        enhancedItem.category = "Legal Services";
       } else {
         enhancedItem.category = "Other";
+      }
+    }
+    
+    // Extract city and state from address if not present
+    if (enhancedItem.address && (!enhancedItem.city || !enhancedItem.state)) {
+      const addressParts = enhancedItem.address.split(',').map(part => part.trim());
+      
+      if (!enhancedItem.city && addressParts.length >= 2) {
+        enhancedItem.city = addressParts[addressParts.length - 2];
+      }
+      
+      if (!enhancedItem.state && addressParts.length >= 1) {
+        const lastPart = addressParts[addressParts.length - 1];
+        const stateZipMatch = lastPart.match(/([A-Z]{2})\s+\d{5}/);
+        if (stateZipMatch && stateZipMatch[1]) {
+          enhancedItem.state = stateZipMatch[1];
+        }
+      }
+    }
+    
+    // Extract or infer industry based on category and description if not present
+    if (!enhancedItem.industry) {
+      if (enhancedItem.category === "Food & Dining") {
+        enhancedItem.industry = "Restaurants";
+      } else if (enhancedItem.category === "Home Services") {
+        enhancedItem.industry = "Home Improvement";
+      } else if (enhancedItem.category === "Technology") {
+        enhancedItem.industry = "Tech Companies";
+      } else if (enhancedItem.category === "Professional Services") {
+        enhancedItem.industry = "Consulting";
+      } else if (enhancedItem.category === "Legal Services") {
+        enhancedItem.industry = "Lawyers";
+      } else {
+        enhancedItem.industry = enhancedItem.category || "Other";
       }
     }
     
