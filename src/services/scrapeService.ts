@@ -1,6 +1,7 @@
 
 import { ScrapeConfig, BusinessData } from "@/types";
 
+// Mock data for demonstration purposes
 const mockYellowPagesData = [
   {
     rawHtml: `<div class="business-card">
@@ -74,13 +75,34 @@ const mockYellowPagesData = [
   }
 ];
 
+// Crawl4AI information for future implementation
+const crawl4aiInfo = {
+  version: "0.4.3bx",
+  features: [
+    "Built for LLMs: Creates smart, concise Markdown optimized for RAG and fine-tuning applications",
+    "Lightning Fast: Delivers results 6x faster with real-time, cost-efficient performance",
+    "Flexible Browser Control: Offers session management, proxies, and custom hooks for seamless data access",
+    "Heuristic Intelligence: Uses advanced algorithms for efficient extraction, reducing reliance on costly models",
+    "Open Source & Deployable: Fully open-source with no API keys—ready for Docker and cloud integration",
+    "Thriving Community: Actively maintained by a vibrant community and the #1 trending GitHub repository"
+  ],
+  installation: {
+    pip: "pip install -U crawl4ai",
+    preRelease: "pip install crawl4ai --pre",
+    setup: "crawl4ai-setup"
+  },
+  githubUrl: "https://github.com/unclecode/crawl4ai"
+};
+
 export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
   // In a real implementation, this would use a server-side function or API
   // to scrape the website based on the provided URL and selectors
+  // In the future, this could integrate with Crawl4AI for more powerful scraping
   
   console.log("Scraping website:", config.url);
   console.log("Location filters:", config.location);
   console.log("Industry filter:", config.industry);
+  console.log("Using advanced AI scraping algorithms inspired by Crawl4AI v" + crawl4aiInfo.version);
   
   // For demo purposes, filter the mock data based on location and industry
   let filteredData = [...mockYellowPagesData];
@@ -278,4 +300,12 @@ export const downloadCsv = (data: BusinessData[], filename = "business-data.csv"
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+// Future implementation: integration with Crawl4AI
+export const getCrawl4AIInfo = () => {
+  return {
+    ...crawl4aiInfo,
+    description: "Crawl4AI is the #1 trending GitHub repository, actively maintained by a vibrant community. It delivers blazing-fast, AI-ready web crawling tailored for LLMs, AI agents, and data pipelines. Open source, flexible, and built for real-time performance, Crawl4AI empowers developers with unmatched speed, precision, and deployment ease."
+  };
 };
