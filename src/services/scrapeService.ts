@@ -85,44 +85,57 @@ export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
   // For demo purposes, filter the mock data based on location and industry
   let filteredData = [...mockYellowPagesData];
   
+  // Changed this to a less strict matching algorithm
   if (config.location?.city || config.location?.state || config.industry) {
     filteredData = mockYellowPagesData.filter(item => {
       const doc = new DOMParser().parseFromString(item.rawHtml, "text/html");
       let match = true;
       
-      // Filter by city if specified
-      if (config.location?.city) {
+      // Filter by city if specified, using a less strict comparison
+      if (config.location?.city && config.location.city.trim() !== "") {
         const cityElement = doc.querySelector(".city");
         const cityText = cityElement?.textContent?.trim().toLowerCase() || "";
-        if (!cityText.includes(config.location.city.toLowerCase())) {
+        const cityFilter = config.location.city.toLowerCase().trim();
+        // Changed to a more permissive check
+        if (!cityText.includes(cityFilter) && !cityFilter.includes(cityText)) {
           match = false;
         }
       }
       
-      // Filter by state if specified
-      if (config.location?.state && match) {
+      // Filter by state if specified, using a less strict comparison
+      if (config.location?.state && config.location.state.trim() !== "" && match) {
         const stateElement = doc.querySelector(".state");
         const stateText = stateElement?.textContent?.trim().toLowerCase() || "";
-        if (!stateText.includes(config.location.state.toLowerCase())) {
+        const stateFilter = config.location.state.toLowerCase().trim();
+        // Changed to a more permissive check
+        if (!stateText.includes(stateFilter) && !stateFilter.includes(stateText)) {
           match = false;
         }
       }
       
-      // Filter by industry if specified
-      if (config.industry && match) {
+      // Filter by industry if specified, using a more inclusive approach
+      if (config.industry && config.industry.trim() !== "" && match) {
         const industryElement = doc.querySelector(".industry");
         const categoryElement = doc.querySelector(".category");
         const descElement = doc.querySelector(".description");
+        const nameElement = doc.querySelector(".business-name");
         
         const industryText = industryElement?.textContent?.trim().toLowerCase() || "";
         const categoryText = categoryElement?.textContent?.trim().toLowerCase() || "";
         const descText = descElement?.textContent?.trim().toLowerCase() || "";
+        const nameText = nameElement?.textContent?.trim().toLowerCase() || "";
         
-        const industryLower = config.industry.toLowerCase();
+        const industryFilter = config.industry.toLowerCase().trim();
         
-        if (!industryText.includes(industryLower) && 
-            !categoryText.includes(industryLower) && 
-            !descText.includes(industryLower)) {
+        // Look for industry keywords in multiple fields with partial matching
+        const keywordFound = 
+            industryText.includes(industryFilter) || 
+            industryFilter.includes(industryText) ||
+            categoryText.includes(industryFilter) || 
+            descText.includes(industryFilter) ||
+            nameText.includes(industryFilter);
+            
+        if (!keywordFound) {
           match = false;
         }
       }
