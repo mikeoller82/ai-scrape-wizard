@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -97,5 +91,39 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+  }
+}
+
+/* Custom animations and transitions */
+@layer utilities {
+  .transition-smooth {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .animate-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+  }
+}
+
+/* Custom card styling */
+.card-hover {
+  @apply transition-all duration-300 ease-in-out;
+  @apply hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700;
+  @apply transform hover:-translate-y-1;
+}
+
+/* Glass effect */
+.glass {
+  @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm;
+  @apply border border-white/20 dark:border-gray-800/20;
 }
