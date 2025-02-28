@@ -104,39 +104,60 @@ export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
   console.log("Industry filter:", config.industry);
   console.log("Using advanced AI scraping algorithms inspired by Crawl4AI v" + crawl4aiInfo.version);
   
-  // For demo purposes, filter the mock data based on location and industry
+  // For demo purposes, always return all mock data unless there are very specific filters
+  // This ensures we get results even with loose matching
   let filteredData = [...mockYellowPagesData];
   
-  // Changed this to a less strict matching algorithm
-  if (config.location?.city || config.location?.state || config.industry) {
+  // Only filter if we have non-empty filter values
+  const hasLocationFilter = !!(config.location?.city?.trim() || config.location?.state?.trim());
+  const hasIndustryFilter = !!config.industry?.trim();
+  
+  if (hasLocationFilter || hasIndustryFilter) {
     filteredData = mockYellowPagesData.filter(item => {
       const doc = new DOMParser().parseFromString(item.rawHtml, "text/html");
-      let match = true;
       
-      // Filter by city if specified, using a less strict comparison
-      if (config.location?.city && config.location.city.trim() !== "") {
+      // If no filters are specified, consider it a match
+      if (!hasLocationFilter && !hasIndustryFilter) return true;
+      
+      // Default to true - we'll eliminate if filters don't match
+      let locationMatch = true;
+      let industryMatch = true;
+      
+      // Only check location if filter is provided
+      if (hasLocationFilter) {
+        locationMatch = false; // Default to no match, prove it matches
+        
         const cityElement = doc.querySelector(".city");
-        const cityText = cityElement?.textContent?.trim().toLowerCase() || "";
-        const cityFilter = config.location.city.toLowerCase().trim();
-        // Changed to a more permissive check
-        if (!cityText.includes(cityFilter) && !cityFilter.includes(cityText)) {
-          match = false;
-        }
-      }
-      
-      // Filter by state if specified, using a less strict comparison
-      if (config.location?.state && config.location.state.trim() !== "" && match) {
         const stateElement = doc.querySelector(".state");
+        const addressElement = doc.querySelector(".address");
+        
+        const cityText = cityElement?.textContent?.trim().toLowerCase() || "";
         const stateText = stateElement?.textContent?.trim().toLowerCase() || "";
-        const stateFilter = config.location.state.toLowerCase().trim();
-        // Changed to a more permissive check
-        if (!stateText.includes(stateFilter) && !stateFilter.includes(stateText)) {
-          match = false;
-        }
+        const addressText = addressElement?.textContent?.trim().toLowerCase() || "";
+        
+        const cityFilter = (config.location?.city || "").toLowerCase().trim();
+        const stateFilter = (config.location?.state || "").toLowerCase().trim();
+        
+        // Check city match (if city filter provided)
+        const cityMatches = !cityFilter || 
+          cityText.includes(cityFilter) || 
+          cityFilter.includes(cityText) ||
+          addressText.includes(cityFilter);
+          
+        // Check state match (if state filter provided)
+        const stateMatches = !stateFilter || 
+          stateText.includes(stateFilter) || 
+          stateFilter.includes(stateText) ||
+          addressText.includes(stateFilter);
+          
+        // Location matches if both city AND state match (or if one filter is not provided)
+        locationMatch = cityMatches && stateMatches;
       }
       
-      // Filter by industry if specified, using a more inclusive approach
-      if (config.industry && config.industry.trim() !== "" && match) {
+      // Only check industry if filter is provided
+      if (hasIndustryFilter) {
+        industryMatch = false; // Default to no match, prove it matches
+        
         const industryElement = doc.querySelector(".industry");
         const categoryElement = doc.querySelector(".category");
         const descElement = doc.querySelector(".description");
@@ -147,24 +168,26 @@ export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
         const descText = descElement?.textContent?.trim().toLowerCase() || "";
         const nameText = nameElement?.textContent?.trim().toLowerCase() || "";
         
-        const industryFilter = config.industry.toLowerCase().trim();
+        const industryFilter = config.industry?.toLowerCase().trim() || "";
         
-        // Look for industry keywords in multiple fields with partial matching
-        const keywordFound = 
+        // Ultra-permissive industry matching
+        // Any of these fields containing any part of the filter is a match
+        industryMatch = 
             industryText.includes(industryFilter) || 
             industryFilter.includes(industryText) ||
             categoryText.includes(industryFilter) || 
+            categoryText.toLowerCase() === industryFilter.toLowerCase() ||
             descText.includes(industryFilter) ||
             nameText.includes(industryFilter);
-            
-        if (!keywordFound) {
-          match = false;
-        }
       }
       
-      return match;
+      // For ANDing filters: item matches if it passes both location and industry checks
+      // If just one filter type is provided, it only needs to match that filter
+      return locationMatch && industryMatch;
     });
   }
+  
+  console.log(`Found ${filteredData.length} matching businesses using Crawl4AI-inspired algorithms`);
   
   // Return filtered data after a short delay
   return new Promise((resolve) => {
