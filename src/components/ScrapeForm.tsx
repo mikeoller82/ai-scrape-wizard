@@ -63,7 +63,8 @@ export function ScrapeForm() {
         category: ".category",
         city: ".city",
         state: ".state",
-        industry: ".industry"
+        industry: ".industry",
+        email: ".email" // Adding email to fix the type error
       },
       model: "gpt-4o-mini" as AIModel,
       instructions: defaultAiInstructions
@@ -389,6 +390,18 @@ export function ScrapeForm() {
                                 <FormLabel>State Selector</FormLabel>
                                 <FormControl>
                                   <Input placeholder=".state" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="selectors.industry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Industry Selector</FormLabel>
+                                <FormControl>
+                                  <Input placeholder=".industry" {...field} />
                                 </FormControl>
                               </FormItem>
                             )}
