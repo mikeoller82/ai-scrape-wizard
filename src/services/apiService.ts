@@ -30,8 +30,10 @@ export const enhanceBusinessData = async (
  */
 export const getAvailableFunctions = async (): Promise<string[]> => {
   try {
+    // Instead of using an OPTIONS method which is not allowed,
+    // we'll use GET and check the response or use a predefined list
     const { data, error } = await supabase.functions.invoke('enhance-lead-data', {
-      method: 'OPTIONS'
+      method: 'GET'
     });
 
     if (error) return ['enhance-lead-data'];
