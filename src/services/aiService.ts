@@ -91,27 +91,31 @@ export const processWithAI = async (
   });
 };
 
-export const getAvailableModels = (): { id: AIModel; name: string; description: string }[] => {
+export const getAvailableModels = (): { id: AIModel; name: string; description: string; supportsTool?: boolean }[] => {
   return [
     { 
       id: "gpt-4o-mini", 
       name: "GPT-4o Mini", 
-      description: "Fast and cost-effective for most use cases" 
+      description: "Fast and cost-effective for most use cases",
+      supportsTool: true
     },
     { 
       id: "gpt-4o", 
       name: "GPT-4o", 
-      description: "Most capable model for complex tasks" 
+      description: "Most capable model for complex tasks",
+      supportsTool: true
     },
     { 
       id: "claude-3-haiku", 
       name: "Claude 3 Haiku", 
-      description: "Fast, efficient text processing" 
+      description: "Fast, efficient text processing",
+      supportsTool: true
     },
     { 
       id: "claude-3-sonnet", 
       name: "Claude 3 Sonnet", 
-      description: "Balance of speed and capability" 
+      description: "Balance of speed and capability",
+      supportsTool: true
     },
     { 
       id: "llama-3-8b", 
@@ -124,4 +128,44 @@ export const getAvailableModels = (): { id: AIModel; name: string; description: 
       description: "Advanced open source large model" 
     }
   ];
+};
+
+// Model capabilities metadata
+export const MODEL_CAPABILITIES = {
+  "gpt-4o": {
+    maxTokens: 8192,
+    supportsTool: true,
+    supportsParallel: true,
+    supportsFunctionCalling: true
+  },
+  "gpt-4o-mini": {
+    maxTokens: 4096,
+    supportsTool: true,
+    supportsParallel: true,
+    supportsFunctionCalling: true
+  },
+  "claude-3-haiku": {
+    maxTokens: 4096,
+    supportsTool: true,
+    supportsParallel: false,
+    supportsFunctionCalling: true
+  },
+  "claude-3-sonnet": {
+    maxTokens: 8192,
+    supportsTool: true,
+    supportsParallel: false,
+    supportsFunctionCalling: true
+  },
+  "llama-3-8b": {
+    maxTokens: 4096,
+    supportsTool: false,
+    supportsParallel: false,
+    supportsFunctionCalling: false
+  },
+  "llama-3-70b": {
+    maxTokens: 8192,
+    supportsTool: false,
+    supportsParallel: false,
+    supportsFunctionCalling: false
+  }
 };

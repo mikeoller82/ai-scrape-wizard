@@ -3,13 +3,16 @@ import { ScrapeForm } from "@/components/ScrapeForm";
 import { useQuery } from "@tanstack/react-query";
 import { getAllBusinessData, getScrapingResults } from "@/services/supabaseService";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, Database, FileSpreadsheet, Search, Zap, Trophy, Target } from "lucide-react";
+import { ExternalLink, Database, FileSpreadsheet, Search, Zap, Trophy, Target, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AIChat } from "@/components/AIChat";
 
 const Index = () => {
   const [showAnimation, setShowAnimation] = useState(true);
+  const [activeTab, setActiveTab] = useState("scrape");
   
   // Fade out animation after 2 seconds
   useEffect(() => {
@@ -111,7 +114,26 @@ const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <ScrapeForm />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2 w-[400px] mx-auto mb-6">
+              <TabsTrigger value="scrape" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <Search className="h-4 w-4 mr-2" />
+                Scrape Data
+              </TabsTrigger>
+              <TabsTrigger value="ai-chat" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                AI Chat
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="scrape">
+              <ScrapeForm />
+            </TabsContent>
+            
+            <TabsContent value="ai-chat">
+              <AIChat />
+            </TabsContent>
+          </Tabs>
         </motion.div>
         
         <footer className="text-center pt-16">
