@@ -9,7 +9,182 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      business_data: {
+        Row: {
+          additional_data: Json | null
+          address: string | null
+          category: string | null
+          city: string | null
+          created_at: string | null
+          description: string | null
+          email: string | null
+          id: string
+          industry: string | null
+          name: string
+          phone: string | null
+          scraping_result_id: string | null
+          state: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          additional_data?: Json | null
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          name: string
+          phone?: string | null
+          scraping_result_id?: string | null
+          state?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          additional_data?: Json | null
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          name?: string
+          phone?: string | null
+          scraping_result_id?: string | null
+          state?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_data_scraping_result_id_fkey"
+            columns: ["scraping_result_id"]
+            isOneToOne: false
+            referencedRelation: "scraping_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processing_configs: {
+        Row: {
+          created_at: string | null
+          id: string
+          instructions: string
+          model: string
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          instructions: string
+          model: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          instructions?: string
+          model?: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scrape_configs: {
+        Row: {
+          created_at: string | null
+          data_fields: string[] | null
+          id: string
+          industry: string | null
+          location_city: string | null
+          location_state: string | null
+          selectors: Json | null
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_fields?: string[] | null
+          id?: string
+          industry?: string | null
+          location_city?: string | null
+          location_state?: string | null
+          selectors?: Json | null
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          data_fields?: string[] | null
+          id?: string
+          industry?: string | null
+          location_city?: string | null
+          location_state?: string | null
+          selectors?: Json | null
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
+      scraping_results: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          id: string
+          processed_data: Json | null
+          processing_config_id: string | null
+          raw_data: Json | null
+          scrape_config_id: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          processed_data?: Json | null
+          processing_config_id?: string | null
+          raw_data?: Json | null
+          scrape_config_id?: string | null
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          processed_data?: Json | null
+          processing_config_id?: string | null
+          raw_data?: Json | null
+          scrape_config_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scraping_results_processing_config_id_fkey"
+            columns: ["processing_config_id"]
+            isOneToOne: false
+            referencedRelation: "processing_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scraping_results_scrape_config_id_fkey"
+            columns: ["scrape_config_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
