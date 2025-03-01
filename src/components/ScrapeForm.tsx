@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { ModelSelector } from "@/components/ModelSelector"; 
 import { DataPreview } from "@/components/DataPreview";
 import { 
@@ -28,7 +29,9 @@ import {
 import { 
   scrapeWebsite, 
   extractDataFromHtml,
-  downloadCsv
+  downloadCsv,
+  advancedScrapeWebsite,
+  checkScrapingPermissions
 } from "@/services/scrapeService";
 import { processWithAI } from "@/services/aiService";
 import { 

@@ -19,7 +19,8 @@ export type AIModel =
   | "claude-3-haiku"
   | "claude-3-sonnet"
   | "llama-3-8b"
-  | "llama-3-70b";
+  | "llama-3-70b"
+  | "llama-3.3-70b-versatile";
 
 export interface ScrapeConfig {
   url: string;
@@ -43,6 +44,10 @@ export interface ScrapeConfig {
     [key: string]: string | undefined;
   };
   dataFields?: string[];
+  respectRobotsTxt?: boolean;
+  useRotatingProxies?: boolean;
+  useRandomUserAgents?: boolean;
+  baseDelaySeconds?: number;
 }
 
 export interface ProcessingConfig {
@@ -56,4 +61,10 @@ export interface ScrapingResult {
   processedData: BusinessData[];
   status: "idle" | "loading" | "success" | "error";
   error?: string;
+}
+
+export interface ScrapingPermissions {
+  allowed: boolean;
+  reason?: string;
+  recommendedDelay?: number;
 }

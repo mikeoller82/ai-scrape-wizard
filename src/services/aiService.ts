@@ -1,5 +1,7 @@
 
 import { AIModel, BusinessData, ProcessingConfig } from "@/types";
+import { AVAILABLE_TOOLS, TOOL_ENABLED_MODELS, Tool, ToolUseRequest, ChatMessage } from "@/types/aiTypes";
+import { MODEL_CAPABILITIES } from "@/services/aiService";
 
 // Mock AI processing function - in a real implementation this would call a backend API
 export const processWithAI = async (
@@ -126,6 +128,12 @@ export const getAvailableModels = (): { id: AIModel; name: string; description: 
       id: "llama-3-70b", 
       name: "Llama 3 (70B)", 
       description: "Advanced open source large model" 
+    },
+    { 
+      id: "llama-3.3-70b-versatile", 
+      name: "Llama 3.3 (70B) Versatile", 
+      description: "Advanced tool-using model",
+      supportsTool: true 
     }
   ];
 };
@@ -167,5 +175,63 @@ export const MODEL_CAPABILITIES = {
     supportsTool: false,
     supportsParallel: false,
     supportsFunctionCalling: false
+  },
+  "llama-3.3-70b-versatile": {
+    maxTokens: 8192,
+    supportsTool: true,
+    supportsParallel: true,
+    supportsFunctionCalling: true
   }
+};
+
+// New function to handle tool use for website extraction
+export const processWithToolUse = async (
+  systemPrompt: string,
+  userQuery: string,
+  modelId: AIModel,
+  tools: Tool[]
+): Promise<any> => {
+  console.log(`Processing with tool use: Model ${modelId}, Query: ${userQuery}`);
+  
+  // In a real implementation, this would call an API
+  // For now, we'll provide a mock implementation
+  
+  // Create the initial messages
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userQuery }
+  ];
+  
+  // Simulate API call processing
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  // For demo purposes, always assume the tool is being called
+  // In a real implementation, this would be determined by the AI
+  const mockToolCall = {
+    id: "call_" + Math.random().toString(36).substring(2, 10),
+    type: "function" as const,
+    function: {
+      name: tools[0].function.name,
+      arguments: JSON.stringify({
+        url: "https://example.com",
+        respectRobotsTxt: true,
+        useRotatingProxies: true
+      })
+    }
+  };
+  
+  // Mock response with tool call
+  return {
+    id: "mock-completion-id",
+    model: modelId,
+    choices: [{
+      index: 0,
+      message: {
+        role: "assistant",
+        content: null,
+        tool_calls: [mockToolCall]
+      },
+      finish_reason: "tool_calls"
+    }]
+  };
 };

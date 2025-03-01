@@ -1,4 +1,3 @@
-
 import { ScrapeConfig, BusinessData } from "@/types";
 
 // Mock data for demonstration purposes
@@ -94,15 +93,134 @@ const crawl4aiInfo = {
   githubUrl: "https://github.com/unclecode/crawl4ai"
 };
 
-export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
+// New robots.txt parser implementation
+interface RobotsTxtRules {
+  allowedPaths: string[];
+  disallowedPaths: string[];
+  crawlDelay: number | null;
+}
+
+class RobotsTxtParser {
+  static async fetchAndParse(domain: string): Promise<RobotsTxtRules> {
+    console.log(`Fetching robots.txt from ${domain}`);
+    
+    // In a real implementation, this would fetch and parse the actual robots.txt
+    // For now, we'll return mock rules
+    return {
+      allowedPaths: ["/", "/public", "/business"],
+      disallowedPaths: ["/admin", "/private", "/user"],
+      crawlDelay: 5 // seconds
+    };
+  }
+  
+  static isPathAllowed(rules: RobotsTxtRules, path: string): boolean {
+    // Check if the path is explicitly disallowed
+    if (rules.disallowedPaths.some(disallowed => path.startsWith(disallowed))) {
+      return false;
+    }
+    
+    // Check if the path is explicitly allowed
+    if (rules.allowedPaths.some(allowed => path.startsWith(allowed))) {
+      return true;
+    }
+    
+    // Default to allowed if not specified
+    return true;
+  }
+}
+
+// Anti-blocking utilities
+class AntiBlockingUtils {
+  private static userAgents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+  ];
+  
+  private static proxyServers = [
+    // In a production environment, these would be real proxy servers
+    "mock-proxy-1",
+    "mock-proxy-2",
+    "mock-proxy-3"
+  ];
+  
+  static getRandomUserAgent(): string {
+    return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+  }
+  
+  static getRandomProxy(): string {
+    return this.proxyServers[Math.floor(Math.random() * this.proxyServers.length)];
+  }
+  
+  static calculateDelay(baseDelay: number): number {
+    // Add jitter to delay to appear more human-like
+    return baseDelay * 1000 + Math.random() * 2000;
+  }
+}
+
+// Enhanced scraping configuration
+interface EnhancedScrapeConfig extends ScrapeConfig {
+  respectRobotsTxt?: boolean;
+  useRotatingProxies?: boolean;
+  useRandomUserAgents?: boolean;
+  baseDelaySeconds?: number;
+}
+
+export const scrapeWebsite = async (config: EnhancedScrapeConfig): Promise<any[]> => {
   // In a real implementation, this would use a server-side function or API
   // to scrape the website based on the provided URL and selectors
-  // In the future, this could integrate with Crawl4AI for more powerful scraping
   
   console.log("Scraping website:", config.url);
   console.log("Location filters:", config.location);
   console.log("Industry filter:", config.industry);
   console.log("Using advanced AI scraping algorithms inspired by Crawl4AI v" + crawl4aiInfo.version);
+  
+  // Extract domain from URL
+  const urlObj = new URL(config.url);
+  const domain = urlObj.hostname;
+  
+  // Check robots.txt if enabled
+  let robotsRules: RobotsTxtRules | null = null;
+  if (config.respectRobotsTxt) {
+    try {
+      console.log("Checking robots.txt rules");
+      robotsRules = await RobotsTxtParser.fetchAndParse(domain);
+      console.log("Robot rules fetched:", robotsRules);
+      
+      // Check if the path is allowed
+      const urlPath = urlObj.pathname;
+      if (!RobotsTxtParser.isPathAllowed(robotsRules, urlPath)) {
+        console.warn(`Path ${urlPath} is disallowed by robots.txt, aborting scrape`);
+        return [];
+      }
+      
+      console.log(`Path ${urlPath} is allowed by robots.txt, proceeding with scrape`);
+    } catch (error) {
+      console.error("Error fetching robots.txt:", error);
+      // Continue with scrape if we can't fetch robots.txt
+    }
+  }
+  
+  // Set up anti-blocking measures
+  const userAgent = config.useRandomUserAgents 
+    ? AntiBlockingUtils.getRandomUserAgent() 
+    : "Mozilla/5.0 (compatible; Crawler/1.0)";
+  
+  const proxy = config.useRotatingProxies 
+    ? AntiBlockingUtils.getRandomProxy() 
+    : null;
+  
+  console.log("Using user agent:", userAgent);
+  if (proxy) {
+    console.log("Using proxy server:", proxy);
+  }
+  
+  // Calculate delay based on robots.txt or config
+  const baseDelay = robotsRules?.crawlDelay || config.baseDelaySeconds || 2;
+  const delay = AntiBlockingUtils.calculateDelay(baseDelay);
+  
+  console.log(`Adding delay of ${delay}ms between requests to avoid rate limiting`);
   
   // For demo purposes, always return all mock data unless there are very specific filters
   // This ensures we get results even with loose matching
@@ -189,12 +307,10 @@ export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
   
   console.log(`Found ${filteredData.length} matching businesses using Crawl4AI-inspired algorithms`);
   
-  // Return filtered data after a short delay
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(filteredData);
-    }, 1500);
-  });
+  // Apply the calculated delay to simulate respecting crawl-delay
+  await new Promise(resolve => setTimeout(resolve, delay));
+  
+  return filteredData;
 };
 
 export const parseHtml = (html: string, selectors: ScrapeConfig["selectors"]): Partial<BusinessData> => {
@@ -331,4 +447,65 @@ export const getCrawl4AIInfo = () => {
     ...crawl4aiInfo,
     description: "Crawl4AI is the #1 trending GitHub repository, actively maintained by a vibrant community. It delivers blazing-fast, AI-ready web crawling tailored for LLMs, AI agents, and data pipelines. Open source, flexible, and built for real-time performance, Crawl4AI empowers developers with unmatched speed, precision, and deployment ease."
   };
+};
+
+// Add new advanced scraping capabilities
+export const advancedScrapeWebsite = async (config: EnhancedScrapeConfig): Promise<any[]> => {
+  console.log("Starting advanced scrape with anti-blocking measures");
+  
+  // Enhanced configuration with anti-blocking features enabled
+  const enhancedConfig: EnhancedScrapeConfig = {
+    ...config,
+    respectRobotsTxt: config.respectRobotsTxt ?? true,
+    useRotatingProxies: config.useRotatingProxies ?? true,
+    useRandomUserAgents: config.useRandomUserAgents ?? true,
+    baseDelaySeconds: config.baseDelaySeconds ?? 3
+  };
+  
+  // Log the enhanced configuration
+  console.log("Enhanced scrape configuration:", {
+    url: enhancedConfig.url,
+    respectRobotsTxt: enhancedConfig.respectRobotsTxt,
+    useRotatingProxies: enhancedConfig.useRotatingProxies,
+    useRandomUserAgents: enhancedConfig.useRandomUserAgents,
+    baseDelaySeconds: enhancedConfig.baseDelaySeconds
+  });
+  
+  // Use the base scraping function with enhanced configuration
+  return await scrapeWebsite(enhancedConfig);
+};
+
+// Helper function to verify if a website allows scraping
+export const checkScrapingPermissions = async (url: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  recommendedDelay?: number;
+}> => {
+  try {
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname;
+    
+    // Check robots.txt
+    const robotsRules = await RobotsTxtParser.fetchAndParse(domain);
+    const urlPath = urlObj.pathname;
+    
+    if (!RobotsTxtParser.isPathAllowed(robotsRules, urlPath)) {
+      return {
+        allowed: false,
+        reason: `Path ${urlPath} is disallowed by robots.txt`
+      };
+    }
+    
+    return {
+      allowed: true,
+      recommendedDelay: robotsRules.crawlDelay || 2
+    };
+  } catch (error) {
+    console.error("Error checking scraping permissions:", error);
+    return {
+      allowed: true, // Default to allowed if we can't check
+      reason: "Unable to check robots.txt, proceeding with caution",
+      recommendedDelay: 5 // Conservative default
+    };
+  }
 };
