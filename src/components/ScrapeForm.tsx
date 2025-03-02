@@ -139,6 +139,12 @@ export function ScrapeForm() {
       }
     
       // Check scraping permissions first
+      toast({
+        title: "Checking website permissions",
+        description: "Verifying if the website allows scraping...",
+        duration: 3000
+      });
+      
       const permissionsCheck = await checkScrapingPermissions(searchUrl);
       if (!permissionsCheck.allowed) {
         toast({
@@ -181,7 +187,7 @@ export function ScrapeForm() {
       // Start scraping
       toast({
         title: "Scraping started",
-        description: `Scraping data from ${searchUrl}`,
+        description: `Scraping data from ${searchUrl} using CORS proxy`,
         duration: 3000
       });
     
