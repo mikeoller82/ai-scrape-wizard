@@ -1,7 +1,8 @@
 
 import { AIModel, BusinessData, ProcessingConfig } from "@/types";
 import { AVAILABLE_TOOLS, TOOL_ENABLED_MODELS, Tool, ToolUseRequest, ChatMessage } from "@/types/aiTypes";
-import { MODEL_CAPABILITIES } from "@/services/aiService";
+// Remove the circular import
+// import { MODEL_CAPABILITIES } from "@/services/aiService";
 
 // Mock AI processing function - in a real implementation this would call a backend API
 export const processWithAI = async (
