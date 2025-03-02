@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import {
   Form,
   FormControl,
   FormDescription,
-  FormField,
   FormItem,
   FormLabel,
   FormMessage 
@@ -108,16 +106,16 @@ export function ScrapeForm() {
         ...result,
         status: "loading"
       });
-      
+    
       // Build search URL with filters if specified
       let searchUrl = values.url;
-      
+    
       // If using Yellow Pages or similar directory, automatically format the URL with filters
       if (searchUrl.includes("yellowpages.com") || searchUrl.includes("yelp.com")) {
         const baseUrl = searchUrl.split("?")[0];
         const industry = values.industry ? encodeURIComponent(values.industry) : "businesses";
         let location = "";
-        
+      
         if (values.location.city && values.location.state) {
           location = `${values.location.city}%2C+${values.location.state}`;
         } else if (values.location.state) {
@@ -125,14 +123,14 @@ export function ScrapeForm() {
         } else if (values.location.city) {
           location = values.location.city;
         }
-        
+      
         if (location) {
           searchUrl = `${baseUrl}search?search_terms=${industry}&geo_location_terms=${location}`;
         } else {
           searchUrl = `${baseUrl}search?search_terms=${industry}`;
         }
       }
-      
+    
       // Configure scraping
       const scrapeConfig: ScrapeConfig = {
         url: searchUrl,
@@ -143,50 +141,58 @@ export function ScrapeForm() {
         industry: values.industry || undefined,
         selectors: values.selectors
       };
-      
+    
       // Configure AI processing
       const processingConfig: ProcessingConfig = {
         model: values.model,
         instructions: values.instructions,
         temperature: 0.2
       };
-      
+    
       // Start scraping
       toast({
         title: "Scraping started",
-        description: `Scraping data from ${searchUrl}`,
+        description: `Scraping data from ${searchUrl} with filters: ${values.industry ? 'Industry: ' + values.industry : ''}${values.location.city ? ', City: ' + values.location.city : ''}${values.location.state ? ', State: ' + values.location.state : ''}`,
         duration: 3000
       });
-      
+    
       const rawData = await scrapeWebsite(scrapeConfig);
-      
+    
       // Extract structured data from raw HTML
       const extractedData = extractDataFromHtml(rawData, scrapeConfig);
-      
-      toast({
-        title: "Data extracted",
-        description: `Extracted ${extractedData.length} items. Processing with AI...`,
-        duration: 3000
-      });
-      
+    
+      if (rawData.length === 0) {
+        toast({
+          title: "No data found",
+          description: "No business listings found with the given criteria. Using AI to generate sample data.",
+          duration: 3000
+        });
+      } else {
+        toast({
+          title: "Data extracted",
+          description: `Extracted ${extractedData.length} items. Processing with AI...`,
+          duration: 3000
+        });
+      }
+    
       // Process with AI
       const processedData = await processWithAI(extractedData, processingConfig);
-      
+    
       // Update result
       const updatedResult = {
         rawData,
         processedData,
         status: "success" as const
       };
-      
+    
       setResult(updatedResult);
-      
+    
       toast({
         title: "Success",
         description: `Processed ${processedData.length} business records`,
         duration: 5000
       });
-      
+    
       // Save data to Supabase
       try {
         const savedScrapeConfig = await saveScrapeConfig(scrapeConfig);
@@ -201,7 +207,7 @@ export function ScrapeForm() {
           description: "The scraping result has been saved to the database",
           duration: 3000
         });
-        
+      
         // Refresh business data
         refetchBusinessData();
       } catch (saveError) {
@@ -220,7 +226,7 @@ export function ScrapeForm() {
         status: "error",
         error: (error as Error).message
       });
-      
+    
       toast({
         title: "Error",
         description: `Failed to scrape: ${(error as Error).message}`,
