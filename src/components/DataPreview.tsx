@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { BusinessData } from "@/types";
 import { DataTable } from "@/components/ui/DataTable";
@@ -91,7 +92,8 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
     );
   }
   
-  if (!data.length) {
+  // Only show the "no data" message if we're absolutely sure there's no data
+  if (!data || data.length === 0) {
     return (
       <div className="w-full h-64 flex flex-col items-center justify-center border rounded-lg p-6 space-y-4">
         <AlertCircle className="h-12 w-12 text-amber-500" />
