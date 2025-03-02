@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { BusinessData } from "@/types";
 import { DataTable } from "@/components/ui/DataTable";
@@ -8,6 +7,7 @@ import { downloadCsv } from "@/services/scrapeService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface DataPreviewProps {
   data: BusinessData[];
@@ -16,8 +16,10 @@ interface DataPreviewProps {
 
 export function DataPreview({ data, loading = false }: DataPreviewProps) {
   const [activeTab, setActiveTab] = useState<string>("table");
+  const { toast } = useToast();
   
   const columns = useMemo(() => {
+    
     if (!data.length) return [];
     
     // Get all unique keys from the data
@@ -106,6 +108,14 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
     );
   }
   
+  const handleDownload = () => {
+    downloadCsv(data);
+    toast({
+      title: "Download started",
+      description: `Exporting ${data.length} records to CSV file`,
+    });
+  };
+  
   return (
     <div className="w-full space-y-4">
       <div className="flex justify-between items-center">
@@ -113,7 +123,7 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
           Results ({data.length} {data.length === 1 ? "item" : "items"})
         </h3>
         <Button
-          onClick={() => downloadCsv(data)}
+          onClick={handleDownload}
           className="transition-all duration-300"
         >
           Download CSV
