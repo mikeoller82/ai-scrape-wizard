@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import {
   Form,
   FormControl,
   FormDescription,
+  FormField,
   FormItem,
   FormLabel,
   FormMessage 
@@ -28,7 +30,6 @@ import {
   scrapeWebsite, 
   extractDataFromHtml,
   downloadCsv,
-  advancedScrapeWebsite,
   checkScrapingPermissions
 } from "@/services/scrapeService";
 import { processWithAI } from "@/services/aiService";
@@ -96,7 +97,13 @@ export function ScrapeForm() {
         email: ".email"
       },
       model: "gpt-4o-mini" as AIModel,
-      instructions: defaultAiInstructions
+      instructions: defaultAiInstructions,
+      advanced: {
+        respectRobotsTxt: true,
+        useRotatingProxies: true,
+        useRandomUserAgents: true,
+        baseDelaySeconds: 3
+      }
     }
   });
   
@@ -131,7 +138,25 @@ export function ScrapeForm() {
         }
       }
     
-      // Configure scraping
+      // Check scraping permissions first
+      const permissionsCheck = await checkScrapingPermissions(searchUrl);
+      if (!permissionsCheck.allowed) {
+        toast({
+          title: "Scraping not allowed",
+          description: permissionsCheck.reason || "This website does not allow scraping.",
+          variant: "destructive",
+          duration: 5000
+        });
+        
+        setResult({
+          ...result,
+          status: "error",
+          error: permissionsCheck.reason || "Scraping not allowed"
+        });
+        return;
+      }
+      
+      // Configure scraping with advanced options
       const scrapeConfig: ScrapeConfig = {
         url: searchUrl,
         location: values.location.city || values.location.state ? {
@@ -139,7 +164,11 @@ export function ScrapeForm() {
           state: values.location.state
         } : undefined,
         industry: values.industry || undefined,
-        selectors: values.selectors
+        selectors: values.selectors,
+        respectRobotsTxt: values.advanced.respectRobotsTxt,
+        useRotatingProxies: values.advanced.useRotatingProxies,
+        useRandomUserAgents: values.advanced.useRandomUserAgents,
+        baseDelaySeconds: values.advanced.baseDelaySeconds
       };
     
       // Configure AI processing
@@ -152,28 +181,36 @@ export function ScrapeForm() {
       // Start scraping
       toast({
         title: "Scraping started",
-        description: `Scraping data from ${searchUrl} with filters: ${values.industry ? 'Industry: ' + values.industry : ''}${values.location.city ? ', City: ' + values.location.city : ''}${values.location.state ? ', State: ' + values.location.state : ''}`,
+        description: `Scraping data from ${searchUrl}`,
         duration: 3000
       });
     
       const rawData = await scrapeWebsite(scrapeConfig);
     
+      if (!rawData || rawData.length === 0) {
+        toast({
+          title: "No data found",
+          description: "No business listings found with the given criteria. Please try different search parameters.",
+          variant: "destructive",
+          duration: 5000
+        });
+        
+        setResult({
+          ...result,
+          status: "error",
+          error: "No data found"
+        });
+        return;
+      }
+      
       // Extract structured data from raw HTML
       const extractedData = extractDataFromHtml(rawData, scrapeConfig);
     
-      if (rawData.length === 0) {
-        toast({
-          title: "No data found",
-          description: "No business listings found with the given criteria. Using AI to generate sample data.",
-          duration: 3000
-        });
-      } else {
-        toast({
-          title: "Data extracted",
-          description: `Extracted ${extractedData.length} items. Processing with AI...`,
-          duration: 3000
-        });
-      }
+      toast({
+        title: "Data extracted",
+        description: `Extracted ${extractedData.length} items. Processing with AI...`,
+        duration: 3000
+      });
     
       // Process with AI
       const processedData = await processWithAI(extractedData, processingConfig);
@@ -491,6 +528,97 @@ export function ScrapeForm() {
                                     <FormControl>
                                       <Input placeholder=".industry" {...field} />
                                     </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                        
+                        <AccordionItem value="advanced">
+                          <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
+                            Advanced Crawling Options
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4 p-2">
+                              <FormField
+                                control={form.control}
+                                name="advanced.respectRobotsTxt"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Respect robots.txt</FormLabel>
+                                      <FormDescription>
+                                        Follow website rules about what can be scraped
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="advanced.useRotatingProxies"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Use rotating proxies</FormLabel>
+                                      <FormDescription>
+                                        Switch between different IPs to avoid blocks
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="advanced.useRandomUserAgents"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Use random user agents</FormLabel>
+                                      <FormDescription>
+                                        Change browser identifiers to avoid detection
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="advanced.baseDelaySeconds"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Request Delay (seconds)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        {...field}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Time between requests to avoid rate limiting
+                                    </FormDescription>
                                   </FormItem>
                                 )}
                               />
