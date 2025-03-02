@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { downloadCsv } from "@/services/scrapeService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DataPreviewProps {
   data: BusinessData[];
@@ -89,10 +91,17 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
   
   if (!data.length) {
     return (
-      <div className="w-full h-64 flex items-center justify-center border rounded-lg">
-        <div className="text-gray-500 dark:text-gray-400">
-          No data available. Start a scrape to see results here.
-        </div>
+      <div className="w-full h-64 flex flex-col items-center justify-center border rounded-lg p-6 space-y-4">
+        <AlertCircle className="h-12 w-12 text-amber-500" />
+        <Alert variant="warning" className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+          <AlertDescription className="text-center text-amber-800 dark:text-amber-200">
+            No business data found. This may happen because:<br />
+            1. The website blocked the scraping attempt<br />
+            2. No businesses match your search criteria<br />
+            3. The website doesn't have the expected format<br /><br />
+            Try a different search or website.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
