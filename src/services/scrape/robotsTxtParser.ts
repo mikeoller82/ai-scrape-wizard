@@ -6,7 +6,56 @@ export interface RobotsTxtRules {
   allowedPaths: string[];
   disallowedPaths: string[];
   crawlDelay: number | null;
+  disallowAll?: boolean;
 }
+
+/**
+ * Parse robots.txt content
+ */
+export const parseRobotsTxt = (content: string): RobotsTxtRules => {
+  const lines = content.split('\n');
+  
+  const rules: RobotsTxtRules = {
+    allowedPaths: [],
+    disallowedPaths: [],
+    crawlDelay: null,
+    disallowAll: false
+  };
+  
+  let relevantSection = false;
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    if (trimmedLine === '' || trimmedLine.startsWith('#')) {
+      continue;
+    }
+    
+    if (trimmedLine.toLowerCase().startsWith('user-agent:')) {
+      const userAgent = trimmedLine.substring('user-agent:'.length).trim().toLowerCase();
+      relevantSection = userAgent === '*' || userAgent.includes('crawler') || userAgent.includes('bot');
+      continue;
+    }
+    
+    if (relevantSection) {
+      if (trimmedLine.toLowerCase().startsWith('allow:')) {
+        const path = trimmedLine.substring('allow:'.length).trim();
+        rules.allowedPaths.push(path);
+      } else if (trimmedLine.toLowerCase().startsWith('disallow:')) {
+        const path = trimmedLine.substring('disallow:'.length).trim();
+        if (path === '/') {
+          rules.disallowAll = true;
+        }
+        rules.disallowedPaths.push(path);
+      } else if (trimmedLine.toLowerCase().startsWith('crawl-delay:')) {
+        const delay = trimmedLine.substring('crawl-delay:'.length).trim();
+        rules.crawlDelay = parseInt(delay, 10) || null;
+      }
+    }
+  }
+  
+  return rules;
+};
 
 /**
  * Parser for robots.txt files to respect website crawling rules

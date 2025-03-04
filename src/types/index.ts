@@ -66,5 +66,12 @@ export interface ScrapingResult {
 export interface ScrapingPermissions {
   allowed: boolean;
   reason?: string;
+  restrictions?: string[];
+  robotsData?: {
+    allowedPaths?: string[];
+    disallowedPaths?: string[];
+    disallowAll?: boolean;
+    crawlDelay?: number;
+  };
   recommendedDelay?: number;
 }
