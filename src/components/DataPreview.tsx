@@ -92,18 +92,18 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
     );
   }
   
-  // Only show the "no data" message if we're absolutely sure there's no data
-  if (!data || data.length === 0) {
+  // Modified condition to be less strict about showing the no data message
+  if (!data || (Array.isArray(data) && data.length === 0)) {
     return (
       <div className="w-full h-64 flex flex-col items-center justify-center border rounded-lg p-6 space-y-4">
         <AlertCircle className="h-12 w-12 text-amber-500" />
         <Alert variant="warning" className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
           <AlertDescription className="text-center text-amber-800 dark:text-amber-200">
-            No business data found. This may happen because:<br />
-            1. The website blocked the scraping attempt<br />
-            2. No businesses match your search criteria<br />
-            3. The website doesn't have the expected format<br /><br />
-            Try a different search or website.
+            No data found yet. This may happen because:<br />
+            1. The search is still in progress<br />
+            2. No results match your search criteria<br />
+            3. Google may have temporarily blocked the request<br /><br />
+            Try a different search query or try again later.
           </AlertDescription>
         </Alert>
       </div>
