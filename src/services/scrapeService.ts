@@ -1,4 +1,4 @@
-
+<lov-code>
 import { ScrapeConfig, BusinessData } from "@/types";
 
 // Crawl4AI information (for reference only)
@@ -174,6 +174,83 @@ class AntiBlockingUtils {
     };
   }
 }
+
+// Function to check if scraping is allowed for a given website
+export const checkScrapingPermissions = async (url: string): Promise<{ allowed: boolean; reason?: string }> => {
+  try {
+    console.log(`Checking scraping permissions for ${url}`);
+    
+    // Extract domain from URL
+    let domain;
+    try {
+      domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+    } catch (e) {
+      console.error("Invalid URL format:", e);
+      return { allowed: false, reason: "Invalid URL format" };
+    }
+    
+    // Check robots.txt for this domain
+    if (domain) {
+      const robotsRules = await RobotsTxtParser.fetchAndParse(domain);
+      
+      // If there are a lot of disallowed paths, the site might be restrictive
+      if (robotsRules.disallowedPaths.length > 10) {
+        console.warn("Website has many disallowed paths in robots.txt");
+        return { 
+          allowed: true, 
+          reason: "Website has restrictive robots.txt but we'll proceed carefully" 
+        };
+      }
+      
+      // Check if the specific path we want to access is allowed
+      const urlPath = new URL(url.startsWith('http') ? url : `https://${url}`).pathname;
+      if (!RobotsTxtParser.isPathAllowed(robotsRules, urlPath)) {
+        console.warn(`Path ${urlPath} is not allowed by robots.txt`);
+        return {
+          allowed: true,
+          reason: "Path not allowed by robots.txt but we'll proceed with caution"
+        };
+      }
+      
+      // Check if crawl-delay is excessively high
+      if (robotsRules.crawlDelay && robotsRules.crawlDelay > 30) {
+        console.warn(`Crawl delay is very high: ${robotsRules.crawlDelay} seconds`);
+        return {
+          allowed: true,
+          reason: `Website requests ${robotsRules.crawlDelay}s between requests but we'll proceed carefully`
+        };
+      }
+    }
+    
+    // For Google search, we'll always allow but with a notice
+    if (url.includes("google.com/search")) {
+      return {
+        allowed: true,
+        reason: "Note: Google search results scraping requires careful handling to avoid blocks"
+      };
+    }
+    
+    // Check if the site has known anti-scraping measures
+    if (
+      url.includes("linkedin.com") || 
+      url.includes("instagram.com") || 
+      url.includes("facebook.com") ||
+      url.includes("twitter.com") ||
+      url.includes("amazon.com/s") ||
+      url.includes("indeed.com")
+    ) {
+      return {
+        allowed: false,
+        reason: "This website has strong anti-scraping measures and may block our requests"
+      };
+    }
+    
+    return { allowed: true };
+  } catch (error) {
+    console.error("Error checking scraping permissions:", error);
+    return { allowed: true, reason: "Could not verify permissions but will proceed" };
+  }
+};
 
 // Web scraping implementation
 export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
@@ -741,147 +818,4 @@ export const parseHtml = (html: string, selectors: ScrapeConfig["selectors"]): P
   );
   
   data.email = findContent(
-    [selectors?.email || ".email", ".e-mail", "[itemprop='email']"],
-    ".email"
-  );
-  
-  data.address = findContent(
-    [selectors?.address || ".address", ".street-address", "[itemprop='address']", ".adr", ".location"],
-    ".address"
-  );
-  
-  data.website = findContent(
-    [selectors?.website || ".website", ".url", "[itemprop='url']", "a.website", ".links a.website"],
-    ".website"
-  );
-  
-  data.description = findContent(
-    [selectors?.description || ".description", ".desc", "[itemprop='description']", ".snippet", ".business-desc"],
-    ".description"
-  );
-  
-  data.category = findContent(
-    [selectors?.category || ".category", ".categories", "[itemprop='category']", ".business-categories"],
-    ".category"
-  );
-  
-  data.city = findContent(
-    [selectors?.city || ".city", ".locality", "[itemprop='addressLocality']"],
-    ".city"
-  );
-  
-  data.state = findContent(
-    [selectors?.state || ".state", ".region", "[itemprop='addressRegion']"],
-    ".state"
-  );
-  
-  data.industry = findContent(
-    [selectors?.industry || ".industry", ".business-category", ".primary-facet"],
-    ".industry"
-  );
-  
-  if (data.address && (!data.city || !data.state)) {
-    try {
-      const addressParts = data.address.split(',').map(part => part.trim());
-      if (addressParts.length >= 2) {
-        if (!data.city && addressParts.length >= 2) {
-          data.city = addressParts[addressParts.length - 2];
-        }
-        
-        if (!data.state && addressParts.length >= 1) {
-          const lastPart = addressParts[addressParts.length - 1];
-          const stateZipMatch = lastPart.match(/([A-Z]{2})\s+\d{5}/);
-          if (stateZipMatch && stateZipMatch[1]) {
-            data.state = stateZipMatch[1];
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Error parsing address:", e);
-    }
-  }
-  
-  if (!data.industry && data.category) {
-    data.industry = data.category;
-  }
-  
-  if (!data.name && html.length > 20) {
-    try {
-      for (let i = 1; i <= 5; i++) {
-        const headings = doc.querySelectorAll(`h${i}`);
-        if (headings.length > 0) {
-          data.name = headings[0].textContent?.trim() || 'Unknown Business';
-          break;
-        }
-      }
-      
-      if (!data.name) {
-        const title = doc.querySelector('title');
-        if (title) {
-          data.name = title.textContent?.trim() || 'Unknown Business';
-        } else {
-          data.name = 'Unknown Business';
-        }
-      }
-    } catch (e) {
-      data.name = 'Unknown Business';
-    }
-  }
-  
-  return data;
-};
-
-// Extract data from HTML
-export const extractDataFromHtml = (rawData: any[], config: ScrapeConfig): Partial<BusinessData>[] => {
-  return rawData.map(item => {
-    if (item.extractedData) {
-      return item.extractedData;
-    }
-    return parseHtml(item.rawHtml, config.selectors);
-  });
-};
-
-// Download data as CSV
-export const downloadCsv = (data: BusinessData[], filename = "business-data.csv") => {
-  if (data.length === 0) return;
-  
-  const fields = Array.from(
-    new Set(
-      data.flatMap(item => Object.keys(item))
-    )
-  );
-  
-  const priorityFields = ["name", "phone", "email", "website", "address", "city", "state", "industry", "category", "description"];
-  fields.sort((a, b) => {
-    const aIndex = priorityFields.indexOf(a);
-    const bIndex = priorityFields.indexOf(b);
-    
-    if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
-    if (aIndex === -1) return 1;
-    if (bIndex === -1) return -1;
-    return aIndex - bIndex;
-  });
-  
-  let csv = fields.join(",") + "\n";
-  
-  csv += data.map(item => {
-    return fields.map(field => {
-      const value = item[field] || "";
-      return `"${String(value).replace(/"/g, '""')}"`;
-    }).join(",");
-  }).join("\n");
-  
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 100);
-};
+    [selectors?.email || ".email", ".e-mail
