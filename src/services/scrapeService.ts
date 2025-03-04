@@ -1,4 +1,4 @@
-<lov-code>
+
 import { ScrapeConfig, BusinessData } from "@/types";
 
 // Crawl4AI information (for reference only)
@@ -344,6 +344,61 @@ async function scrapeAlternativeSearchEngine(config: ScrapeConfig): Promise<any[
   
   if (results.length > 0) {
     await enhanceResultsWithEmails(results, config);
+  }
+  
+  return results;
+}
+
+// Function to extract data from alternative search engine results
+function extractBusinessDataFromAlternativeSearch(html: string, config: ScrapeConfig): any[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  const results = [];
+  
+  // DuckDuckGo HTML structure
+  const searchResults = doc.querySelectorAll('.result');
+  
+  console.log(`Found ${searchResults.length} alternative search results`);
+  
+  for (let i = 0; i < searchResults.length; i++) {
+    const result = searchResults[i];
+    const rawHtml = result.outerHTML;
+    
+    const titleEl = result.querySelector('.result__title');
+    const linkEl = result.querySelector('.result__url');
+    const snippetEl = result.querySelector('.result__snippet');
+    
+    const title = titleEl ? titleEl.textContent?.trim() : '';
+    const link = linkEl ? linkEl.getAttribute('href') : '';
+    const snippet = snippetEl ? snippetEl.textContent?.trim() : '';
+    
+    const businessData: Partial<BusinessData> = {
+      name: title || 'Unknown',
+      website: link || '',
+      description: snippet || '',
+      industry: config.industry || '',
+    };
+    
+    if (snippet) {
+      const emails = extractEmailsFromText(snippet);
+      if (emails.length > 0) {
+        businessData.email = emails[0];
+      }
+    }
+    
+    if (config.location?.city) {
+      businessData.city = config.location.city;
+    }
+    if (config.location?.state) {
+      businessData.state = config.location.state;
+    }
+    
+    results.push({
+      rawHtml,
+      extractedData: businessData,
+      url: link
+    });
   }
   
   return results;
@@ -816,4 +871,17 @@ export const downloadCsv = (data: BusinessData[], filename = "business-data.csv"
     }).join(",");
   }).join("\n");
   
-  const blob = new Blob([csv], { type: "text/csv;charset=
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 100);
+};
