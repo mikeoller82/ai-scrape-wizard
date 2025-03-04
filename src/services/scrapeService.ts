@@ -1,3 +1,4 @@
+<lov-code>
 import { ScrapeConfig, BusinessData } from "@/types";
 
 // Crawl4AI information (for reference only)
@@ -180,16 +181,11 @@ export const scrapeWebsite = async (config: ScrapeConfig): Promise<any[]> => {
   console.log("Location filters:", config.location);
   console.log("Using advanced scraping algorithms v" + crawl4aiInfo.version);
   
-  const useGoogleSearch = true; // Always use Google search for better results
-  
-  if (useGoogleSearch) {
-    return await scrapeGoogleSearch(config);
-  } else {
-    return await scrapeDirectoryWebsite(config);
-  }
+  // Always use Google search for better results (following crawl4ai approach)
+  return await scrapeGoogleSearch(config);
 };
 
-// New Google search scraper function
+// Improved Google search scraper function
 async function scrapeGoogleSearch(config: ScrapeConfig): Promise<any[]> {
   const searchQuery = buildGoogleSearchQuery(config);
   
@@ -197,10 +193,14 @@ async function scrapeGoogleSearch(config: ScrapeConfig): Promise<any[]> {
   
   const encodedQuery = encodeURIComponent(searchQuery);
   
+  // Using more reliable CORS proxies (similar to crawl4ai approach)
   const corsProxies = [
-    "https://api.allorigins.win/raw?url=",
     "https://corsproxy.io/?",
-    "https://cors-anywhere.herokuapp.com/"
+    "https://api.allorigins.win/raw?url=",
+    "https://cors-anywhere.herokuapp.com/",
+    "https://cors.eu.org/",
+    "https://crossorigin.me/",
+    "https://crossorigin.kirchner.dev/?url="
   ];
   
   let html = '';
@@ -208,10 +208,12 @@ async function scrapeGoogleSearch(config: ScrapeConfig): Promise<any[]> {
   
   const userAgent = config.useRandomUserAgents 
     ? AntiBlockingUtils.getRandomUserAgent() 
-    : "Mozilla/5.0 (compatible; DataZapCrawler/1.0)";
+    : "Mozilla/5.0 (compatible; Crawl4AI/0.5.1; +https://github.com/unclecode/crawl4ai)";
   
   const headers = AntiBlockingUtils.getBrowserEmulationHeaders(userAgent);
   
+  // Try each CORS proxy until one works
+  let proxySuccessful = false;
   for (let i = 0; i < corsProxies.length; i++) {
     try {
       console.log(`Fetching Google search results via CORS proxy ${i+1}: ${corsProxies[i]}${googleSearchUrl}`);
@@ -224,6 +226,7 @@ async function scrapeGoogleSearch(config: ScrapeConfig): Promise<any[]> {
       if (response.ok) {
         html = await response.text();
         console.log(`Successfully fetched ${html.length} bytes of HTML using proxy ${i+1}`);
+        proxySuccessful = true;
         break;
       } else {
         console.warn(`Proxy ${i+1} failed with status: ${response.status}`);
@@ -233,14 +236,115 @@ async function scrapeGoogleSearch(config: ScrapeConfig): Promise<any[]> {
     }
   }
   
-  if (!html || html.length < 100) {
-    console.warn("Retrieved HTML is empty or too short, likely blocked or failed to fetch");
-    return generateSampleResults(config);
+  if (!proxySuccessful || !html || html.length < 100) {
+    console.warn("All proxies failed, attempting direct fetch with CORS mode no-cors");
+    try {
+      // Try a desperate approach with no-cors mode - this may not get data but is a last resort
+      const response = await fetch(`https://www.google.com/search?q=${encodedQuery}&num=100`, {
+        method: 'GET',
+        headers: headers,
+        mode: 'no-cors' // This might help in some cases but won't return usable data in most browsers
+      });
+      
+      if (response.type === 'opaque') {
+        console.log("Got opaque response from direct fetch");
+      }
+    } catch (directError) {
+      console.error("Direct fetch also failed:", directError);
+    }
   }
   
-  const results = extractBusinessDataFromGoogleSearch(html, config);
+  let results = [];
   
-  await enhanceResultsWithEmails(results, config);
+  // If we have HTML content, extract data from it
+  if (html && html.length > 100) {
+    results = extractBusinessDataFromGoogleSearch(html, config);
+    
+    if (results.length > 0) {
+      await enhanceResultsWithEmails(results, config);
+      return results;
+    }
+  }
+  
+  // Try alternative scraping method directly from search engine
+  const alternativeResults = await scrapeAlternativeSearchEngine(config);
+  if (alternativeResults.length > 0) {
+    return alternativeResults;
+  }
+  
+  console.warn("All scraping methods failed, generating minimal sample data for demonstration");
+  // Return a minimal set of sample data with clear indicators that it's sample data
+  return [
+    {
+      rawHtml: "<div class='sample-data'>Sample Data Notice</div>",
+      extractedData: {
+        name: "SCRAPING FAILED - Sample Result",
+        email: "example@domain.com",
+        phone: "555-123-4567",
+        city: config.location?.city || "Sample City",
+        state: config.location?.state || "Sample State",
+        industry: config.industry || "Sample Industry",
+        description: "⚠️ NOTICE: This is sample data shown because web scraping failed. This could be due to CORS restrictions, IP blocking, or changing website structures. Try adjusting your search criteria or try again later. See console for detailed error logs."
+      }
+    }
+  ];
+}
+
+// Alternative search engine scraper as a fallback
+async function scrapeAlternativeSearchEngine(config: ScrapeConfig): Promise<any[]> {
+  console.log("Attempting to use alternative search engine...");
+  
+  const searchQuery = buildGoogleSearchQuery(config);
+  const encodedQuery = encodeURIComponent(searchQuery);
+  
+  // Try DuckDuckGo HTML (which sometimes has fewer restrictions)
+  const corsProxies = [
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url="
+  ];
+  
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
+  
+  let html = '';
+  let proxySuccessful = false;
+  
+  const userAgent = config.useRandomUserAgents 
+    ? AntiBlockingUtils.getRandomUserAgent() 
+    : "Mozilla/5.0 (compatible; Crawl4AI/0.5.1; +https://github.com/unclecode/crawl4ai)";
+  
+  const headers = AntiBlockingUtils.getBrowserEmulationHeaders(userAgent);
+  
+  for (let i = 0; i < corsProxies.length; i++) {
+    try {
+      console.log(`Fetching alternative search results via CORS proxy ${i+1}`);
+      
+      const response = await fetch(`${corsProxies[i]}${searchUrl}`, {
+        method: 'GET',
+        headers: headers,
+      });
+      
+      if (response.ok) {
+        html = await response.text();
+        console.log(`Successfully fetched ${html.length} bytes from alternative search`);
+        proxySuccessful = true;
+        break;
+      }
+    } catch (error) {
+      console.error(`Error with alternative search proxy ${i+1}:`, error);
+    }
+  }
+  
+  if (!proxySuccessful || !html || html.length < 100) {
+    console.warn("Alternative search engine scraping failed");
+    return [];
+  }
+  
+  // Extract data from alternative search engine HTML
+  const results = extractBusinessDataFromAlternativeSearch(html, config);
+  
+  if (results.length > 0) {
+    await enhanceResultsWithEmails(results, config);
+  }
   
   return results;
 }
@@ -319,71 +423,199 @@ function extractBusinessDataFromGoogleSearch(html: string, config: ScrapeConfig)
   return results;
 }
 
+// Enhanced email extraction from webpages
 async function enhanceResultsWithEmails(results: any[], config: ScrapeConfig): Promise<void> {
   const userAgent = config.useRandomUserAgents 
     ? AntiBlockingUtils.getRandomUserAgent() 
-    : "Mozilla/5.0 (compatible; DataZapCrawler/1.0)";
+    : "Mozilla/5.0 (compatible; Crawl4AI/0.5.1; +https://github.com/unclecode/crawl4ai)";
   
   const headers = AntiBlockingUtils.getBrowserEmulationHeaders(userAgent);
   
-  const maxPagesToScan = 10;
-  const pagesToScan = Math.min(results.length, maxPagesToScan);
+  // First pass: check if we already have emails in the results
+  let emailsFound = 0;
+  for (const result of results) {
+    if (result.extractedData.email) {
+      emailsFound++;
+    }
+  }
   
-  console.log(`Enhancing ${pagesToScan} results with email extraction`);
+  console.log(`Found ${emailsFound} emails in initial results`);
+  
+  // If we have enough emails already, don't waste resources trying to get more
+  if (emailsFound >= results.length * 0.7) {
+    console.log("Sufficient emails already found, skipping enhancement");
+    return;
+  }
+  
+  // Determine how many pages to scan based on the number of results
+  const maxPagesToScan = Math.min(20, results.length);
+  
+  console.log(`Enhancing up to ${maxPagesToScan} results with email extraction`);
   
   const corsProxies = [
-    "https://api.allorigins.win/raw?url=",
     "https://corsproxy.io/?",
-    "https://cors-anywhere.herokuapp.com/"
+    "https://api.allorigins.win/raw?url=",
+    "https://cors-anywhere.herokuapp.com/",
+    "https://cors.eu.org/"
   ];
   
-  for (let i = 0; i < pagesToScan; i++) {
-    const result = results[i];
-    
-    if (result.extractedData.email || !result.url) {
-      continue;
-    }
-    
-    const delay = config.baseDelaySeconds ? config.baseDelaySeconds * 1000 + Math.random() * 2000 : 3000;
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    let pageHtml = '';
-    const targetUrl = encodeURIComponent(result.url);
-    
-    for (let j = 0; j < corsProxies.length; j++) {
-      try {
-        console.log(`Fetching ${result.url} via CORS proxy ${j+1}`);
-        
-        const response = await fetch(`${corsProxies[j]}${targetUrl}`, {
-          method: 'GET',
-          headers: headers,
-        });
-        
-        if (response.ok) {
-          pageHtml = await response.text();
-          console.log(`Successfully fetched ${pageHtml.length} bytes from ${result.url}`);
-          break;
-        }
-      } catch (error) {
-        console.error(`Error fetching ${result.url} with proxy ${j+1}:`, error);
+  // Process in batches to avoid overwhelming the network
+  const batchSize = 3;
+  for (let i = 0; i < maxPagesToScan; i += batchSize) {
+    const batch = results.slice(i, i + batchSize);
+    const batchPromises = batch.map(async (result) => {
+      if (result.extractedData.email || !result.url) {
+        return;
       }
-    }
-    
-    if (pageHtml && pageHtml.length > 100) {
-      const emails = extractEmailsFromText(pageHtml);
       
-      if (emails.length > 0) {
-        console.log(`Found email address for ${result.extractedData.name}: ${emails[0]}`);
-        result.extractedData.email = emails[0];
-        
-        if (emails.length > 1) {
-          const additionalEmails = emails.slice(1).join(', ');
-          result.extractedData.description = 
-            `${result.extractedData.description || ''}\nAdditional emails: ${additionalEmails}`;
+      // Add jitter to delay to look more human
+      const baseDelay = config.baseDelaySeconds || 3;
+      const delay = baseDelay * 1000 + Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      let pageHtml = '';
+      let targetUrl;
+      
+      // Ensure the URL is properly formatted
+      try {
+        if (!result.url.startsWith('http')) {
+          targetUrl = encodeURIComponent(`https://${result.url}`);
+        } else {
+          targetUrl = encodeURIComponent(result.url);
         }
+      } catch (e) {
+        console.error(`Invalid URL: ${result.url}`);
+        return;
+      }
+      
+      for (let j = 0; j < corsProxies.length; j++) {
+        try {
+          console.log(`Fetching ${result.url} via CORS proxy ${j+1}`);
+          
+          const response = await fetch(`${corsProxies[j]}${targetUrl}`, {
+            method: 'GET',
+            headers: headers,
+          });
+          
+          if (response.ok) {
+            pageHtml = await response.text();
+            console.log(`Successfully fetched ${pageHtml.length} bytes from ${result.url}`);
+            break;
+          }
+        } catch (error) {
+          console.error(`Error fetching ${result.url} with proxy ${j+1}:`, error);
+        }
+      }
+      
+      if (pageHtml && pageHtml.length > 100) {
+        // Enhanced email extraction logic
+        const emails = extractEmailsFromText(pageHtml);
+        
+        // Also try to find "contact" or "about" page links
+        if (emails.length === 0) {
+          const contactLinks = findContactLinks(pageHtml);
+          
+          if (contactLinks.length > 0) {
+            console.log(`Found ${contactLinks.length} potential contact page links for ${result.extractedData.name}`);
+            
+            // Try to fetch the first contact page
+            for (const contactLink of contactLinks.slice(0, 2)) { // Try at most 2 contact pages
+              try {
+                let contactUrl;
+                if (contactLink.startsWith('http')) {
+                  contactUrl = contactLink;
+                } else if (contactLink.startsWith('/')) {
+                  // Handle relative URLs
+                  try {
+                    const urlObj = new URL(result.url.startsWith('http') ? result.url : `https://${result.url}`);
+                    contactUrl = `${urlObj.origin}${contactLink}`;
+                  } catch (e) {
+                    continue;
+                  }
+                } else {
+                  continue;
+                }
+                
+                console.log(`Checking contact page: ${contactUrl}`);
+                
+                // Add a small delay between fetches
+                await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+                
+                let contactHtml = '';
+                const encodedContactUrl = encodeURIComponent(contactUrl);
+                
+                for (let k = 0; k < corsProxies.length; k++) {
+                  try {
+                    const response = await fetch(`${corsProxies[k]}${encodedContactUrl}`, {
+                      method: 'GET',
+                      headers: headers,
+                    });
+                    
+                    if (response.ok) {
+                      contactHtml = await response.text();
+                      break;
+                    }
+                  } catch (err) {
+                    console.error(`Error fetching contact page with proxy ${k+1}:`, err);
+                  }
+                }
+                
+                if (contactHtml && contactHtml.length > 100) {
+                  const contactEmails = extractEmailsFromText(contactHtml);
+                  if (contactEmails.length > 0) {
+                    emails.push(...contactEmails);
+                    break; // We found emails, no need to check more contact pages
+                  }
+                }
+              } catch (contactError) {
+                console.error(`Error processing contact link ${contactLink}:`, contactError);
+              }
+            }
+          }
+        }
+        
+        if (emails.length > 0) {
+          console.log(`Found email address for ${result.extractedData.name}: ${emails[0]}`);
+          result.extractedData.email = emails[0];
+          
+          if (emails.length > 1) {
+            const additionalEmails = emails.slice(1).join(', ');
+            result.extractedData.description = 
+              `${result.extractedData.description || ''}\nAdditional emails: ${additionalEmails}`.trim();
+          }
+        }
+      }
+    });
+    
+    await Promise.all(batchPromises);
+    
+    // Show progress
+    console.log(`Processed ${Math.min((i + batchSize), maxPagesToScan)} out of ${maxPagesToScan} results`);
+  }
+}
+
+// Find "Contact" or "About" links in HTML
+function findContactLinks(html: string): string[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  const links = Array.from(doc.querySelectorAll('a'));
+  const contactLinks: string[] = [];
+  
+  const contactTerms = ['contact', 'get in touch', 'reach us', 'email us', 'about us', 'about', 'our team'];
+  
+  for (const link of links) {
+    const href = link.getAttribute('href');
+    const text = link.textContent?.toLowerCase() || '';
+    
+    if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+      if (contactTerms.some(term => href.toLowerCase().includes(term) || text.includes(term))) {
+        contactLinks.push(href);
       }
     }
   }
+  
+  return contactLinks;
 }
 
 function extractEmailsFromText(text: string): string[] {
@@ -406,52 +638,24 @@ function extractEmailsFromText(text: string): string[] {
     }
   }
   
-  return Array.from(emails);
-}
-
-// Fallback directory scraping logic
-async function scrapeDirectoryWebsite(config: ScrapeConfig): Promise<any[]> {
-  // Original directory scraping implementation
-  console.log("Scraping directory website...");
-  return generateSampleResults(config);
-}
-
-// Generate sample data when scraping fails
-function generateSampleResults(config: ScrapeConfig): any[] {
-  console.log("Generating sample results for demonstration");
-  
-  const sampleData = [
-    {
-      rawHtml: "<div class='sample-data'>Sample Business 1</div>",
-      extractedData: {
-        name: "Sample Business 1",
-        email: "contact@samplebusiness1.com",
-        phone: "555-123-4567",
-        address: "123 Main St",
-        city: config.location?.city || "Sample City",
-        state: config.location?.state || "Sample State",
-        website: "https://www.samplebusiness1.com",
-        industry: config.industry || "Sample Industry",
-        description: "This is a sample business generated to demonstrate functionality."
-      }
-    },
-    {
-      rawHtml: "<div class='sample-data'>Sample Business 2</div>",
-      extractedData: {
-        name: "Sample Business 2",
-        email: "info@samplebusiness2.com",
-        phone: "555-987-6543",
-        address: "456 Oak Avenue",
-        city: config.location?.city || "Sample City",
-        state: config.location?.state || "Sample State",
-        website: "https://www.samplebusiness2.com",
-        industry: config.industry || "Sample Industry",
-        description: "This is another sample business generated for demonstration."
+  // Also try heuristic approach to find obfuscated emails
+  try {
+    const obfuscatedPattern = /([a-zA-Z0-9._-]+)\s*(?:[\[\(\{]|\[|\(|at|@|AT)\s*([a-zA-Z0-9._-]+)\s*(?:[\]\)\}]|\]|\)|dot|DOT|\.)\s*([a-zA-Z0-9_-]+)/g;
+    const obfuscatedMatches = Array.from(text.matchAll(obfuscatedPattern));
+    
+    for (const match of obfuscatedMatches) {
+      if (match.length >= 4) {
+        const reconstructed = `${match[1]}@${match[2]}.${match[3]}`;
+        if (/^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+$/.test(reconstructed)) {
+          emails.add(reconstructed);
+        }
       }
     }
-  ];
+  } catch (e) {
+    console.error("Error in obfuscated email detection:", e);
+  }
   
-  return sampleData;
+  return Array.from(emails);
 }
 
 // Parse HTML from the scraped data
@@ -612,55 +816,4 @@ export const downloadCsv = (data: BusinessData[], filename = "business-data.csv"
     }).join(",");
   }).join("\n");
   
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-// Get Crawl4AI information
-export const getCrawl4AIInfo = () => {
-  return {
-    ...crawl4aiInfo,
-    description: "Crawl4AI is the #1 trending GitHub repository, actively maintained by a vibrant community. It delivers blazing-fast, AI-ready web crawling tailored for LLMs, AI agents, and data pipelines. Open source, flexible, and built for real-time performance, Crawl4AI empowers developers with unmatched speed, precision, and deployment ease."
-  };
-};
-
-// Helper function to verify if a website allows scraping
-export const checkScrapingPermissions = async (url: string): Promise<{
-  allowed: boolean;
-  reason?: string;
-  recommendedDelay?: number;
-}> => {
-  try {
-    const urlObj = new URL(url);
-    const domain = urlObj.hostname;
-    const path = urlObj.pathname;
-    
-    const robotsRules = await RobotsTxtParser.fetchAndParse(domain);
-    
-    if (!RobotsTxtParser.isPathAllowed(robotsRules, path)) {
-      return {
-        allowed: false,
-        reason: `Path ${path} is disallowed by robots.txt`
-      };
-    }
-    
-    return {
-      allowed: true,
-      recommendedDelay: robotsRules.crawlDelay || 2
-    };
-  } catch (error) {
-    console.error("Error checking scraping permissions:", error);
-    return {
-      allowed: true,
-      reason: "Unable to check robots.txt, proceeding with caution",
-      recommendedDelay: 5
-    };
-  }
-};
+  const blob = new Blob([csv], { type: "text/csv;charset=
