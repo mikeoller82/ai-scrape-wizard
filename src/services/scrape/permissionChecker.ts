@@ -1,83 +1,52 @@
 
-import { RobotsTxtParser } from "./robotsTxtParser";
 import { ScrapingPermissions } from "@/types";
+import { parseRobotsTxt } from "./robotsTxtParser";
 
 /**
- * Check if scraping is allowed for a given website
+ * Check if a URL is allowed to be scraped based on robots.txt and other site policies
  */
 export const checkScrapingPermissions = async (url: string): Promise<ScrapingPermissions> => {
   try {
-    console.log(`Checking scraping permissions for ${url}`);
+    // Parse domain from URL
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname;
+    const robotsTxtUrl = `${urlObj.protocol}//${domain}/robots.txt`;
     
-    // Extract domain from URL
-    let domain;
+    // Attempt to fetch and parse robots.txt
+    let robotsData = null;
     try {
-      domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
-    } catch (e) {
-      console.error("Invalid URL format:", e);
-      return { allowed: false, reason: "Invalid URL format" };
-    }
-    
-    // Check robots.txt for this domain
-    if (domain) {
-      const robotsRules = await RobotsTxtParser.fetchAndParse(domain);
-      
-      // If there are a lot of disallowed paths, the site might be restrictive
-      if (robotsRules.disallowedPaths.length > 10) {
-        console.warn("Website has many disallowed paths in robots.txt");
-        return { 
-          allowed: true, 
-          reason: "Website has restrictive robots.txt but we'll proceed carefully" 
-        };
+      const response = await fetch(robotsTxtUrl);
+      if (response.ok) {
+        const robotsTxtContent = await response.text();
+        robotsData = parseRobotsTxt(robotsTxtContent);
       }
-      
-      // Check if the specific path we want to access is allowed
-      const urlPath = new URL(url.startsWith('http') ? url : `https://${url}`).pathname;
-      if (!RobotsTxtParser.isPathAllowed(robotsRules, urlPath)) {
-        console.warn(`Path ${urlPath} is not allowed by robots.txt`);
-        return {
-          allowed: true,
-          reason: "Path not allowed by robots.txt but we'll proceed with caution"
-        };
-      }
-      
-      // Check if crawl-delay is excessively high
-      if (robotsRules.crawlDelay && robotsRules.crawlDelay > 30) {
-        console.warn(`Crawl delay is very high: ${robotsRules.crawlDelay} seconds`);
-        return {
-          allowed: true,
-          reason: `Website requests ${robotsRules.crawlDelay}s between requests but we'll proceed carefully`,
-          recommendedDelay: robotsRules.crawlDelay
-        };
-      }
+    } catch (error) {
+      console.warn("Error fetching robots.txt:", error);
     }
     
-    // For Google search, we'll always allow but with a notice
-    if (url.includes("google.com/search")) {
-      return {
-        allowed: true,
-        reason: "Note: Google search results scraping requires careful handling to avoid blocks"
-      };
-    }
+    // Check for known anti-scraping sites
+    const antiScrapingSites = [
+      "linkedin.com",
+      "facebook.com",
+      "instagram.com",
+      "twitter.com",
+      "x.com"
+    ];
     
-    // Check if the site has known anti-scraping measures
-    if (
-      url.includes("linkedin.com") || 
-      url.includes("instagram.com") || 
-      url.includes("facebook.com") ||
-      url.includes("twitter.com") ||
-      url.includes("amazon.com/s") ||
-      url.includes("indeed.com")
-    ) {
-      return {
-        allowed: false,
-        reason: "This website has strong anti-scraping measures and may block our requests"
-      };
-    }
+    const isAntiScrapingSite = antiScrapingSites.some(site => domain.includes(site));
     
-    return { allowed: true };
+    return {
+      allowed: !isAntiScrapingSite && (!robotsData || !robotsData.disallowAll),
+      robotsData: robotsData,
+      restrictions: isAntiScrapingSite ? ["Site policy prohibits scraping"] : [],
+      recommendedDelay: robotsData?.crawlDelay || 1000
+    };
   } catch (error) {
     console.error("Error checking scraping permissions:", error);
-    return { allowed: true, reason: "Could not verify permissions but will proceed" };
+    return {
+      allowed: false,
+      restrictions: ["Error checking permissions"],
+      recommendedDelay: 1000
+    };
   }
 };
