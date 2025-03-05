@@ -48,23 +48,27 @@ export function DataTable<T>({ data, columns, className }: DataTableProps<T>) {
                     : "bg-gray-50 dark:bg-gray-900"
                 )}
               >
-                {columns.map((column, colIndex) => (
-                  <td
-                    key={`${rowIndex}-${colIndex}`}
-                    className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    {column.cell
-                      ? column.cell({
-                          getValue: () => {
-                            // @ts-ignore
-                            return row[column.accessorKey];
-                          },
-                          row: { original: row },
-                        })
-                      : // @ts-ignore
-                        row[column.accessorKey] || "-"}
-                  </td>
-                ))}
+                {columns.map((column, colIndex) => {
+                  // Get the value from the row
+                  // @ts-ignore
+                  const value = row[column.accessorKey];
+                  
+                  return (
+                    <td
+                      key={`${rowIndex}-${colIndex}`}
+                      className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      {column.cell
+                        ? column.cell({
+                            getValue: () => value,
+                            row: { original: row },
+                          })
+                        : typeof value === 'object' && value !== null
+                          ? JSON.stringify(value, null, 2)
+                          : value || "-"}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

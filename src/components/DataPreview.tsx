@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { downloadCsv } from "@/services/scrapeService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Code, Table, FileJson } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
 interface DataPreviewProps {
-  data: BusinessData[];
+  data: BusinessData[] | any[];
   loading?: boolean;
 }
 
@@ -26,33 +26,51 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
     const allKeys = Array.from(new Set(data.flatMap(Object.keys)));
     
     // Prioritize common business fields
-    const priorityFields = ["name", "phone", "email", "address", "website", "category", "description"];
+    const priorityFields = [
+      "name", 
+      "phone", 
+      "email", 
+      "address", 
+      "website", 
+      "category", 
+      "description",
+      "title",
+      "url",
+      "extractedDataString" // This is our new field with nice string representation
+    ];
     
     // Sort fields so priority fields come first, then the rest alphabetically
     const sortedKeys = [
       ...priorityFields.filter(field => allKeys.includes(field)),
-      ...allKeys.filter(key => !priorityFields.includes(key)).sort()
+      ...allKeys.filter(key => !priorityFields.includes(key) && 
+                              key !== "extractedData" && // Skip showing raw extracted data object
+                              key !== "rawHtml" && // Skip showing raw HTML in table
+                              key !== "text" // Skip showing full text content
+                      ).sort()
     ];
     
     return sortedKeys.map(key => ({
-      header: key.charAt(0).toUpperCase() + key.slice(1),
+      header: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'),
       accessorKey: key,
       cell: ({ getValue }: { getValue: () => any }) => {
         const value = getValue();
         if (!value) return "-";
-        if (key === "website" && typeof value === "string") {
+        
+        if (key === "website" || key === "url") {
+          const url = typeof value === "string" ? value : String(value);
           return (
             <a
-              href={value.startsWith("http") ? value : `https://${value}`}
+              href={url.startsWith("http") ? url : `https://${url}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:underline dark:text-blue-400"
             >
-              {value}
+              {url.length > 50 ? url.substring(0, 50) + "..." : url}
             </a>
           );
         }
-        if (key === "email" && typeof value === "string") {
+        
+        if (key === "email") {
           return (
             <a
               href={`mailto:${value}`}
@@ -62,7 +80,8 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
             </a>
           );
         }
-        if (key === "phone" && typeof value === "string") {
+        
+        if (key === "phone") {
           return (
             <a
               href={`tel:${value.replace(/[^0-9+]/g, "")}`}
@@ -72,6 +91,20 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
             </a>
           );
         }
+        
+        if (key === "extractedDataString") {
+          return (
+            <pre className="whitespace-pre-wrap max-h-60 overflow-auto text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded-md">
+              {value}
+            </pre>
+          );
+        }
+        
+        // Truncate long text
+        if (typeof value === "string" && value.length > 200) {
+          return value.substring(0, 200) + "...";
+        }
+        
         return String(value);
       }
     }));
@@ -121,10 +154,18 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
   }
   
   const handleDownload = () => {
-    downloadCsv(data);
+    // If data contains extractedData objects, convert them to BusinessData for download
+    const processedData = data.map(item => {
+      if (item.extractedData && typeof item.extractedData === 'object') {
+        return item.extractedData;
+      }
+      return item;
+    });
+    
+    downloadCsv(processedData);
     toast({
       title: "Download started",
-      description: `Exporting ${data.length} records to CSV file`,
+      description: `Exporting ${processedData.length} records to CSV file`,
     });
   };
   
@@ -158,15 +199,55 @@ export function DataPreview({ data, loading = false }: DataPreviewProps) {
       )}
       
       <Tabs defaultValue="table" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="table">Table View</TabsTrigger>
-          <TabsTrigger value="json">Raw JSON</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="table">
+            <Table className="h-4 w-4 mr-2" />
+            Table View
+          </TabsTrigger>
+          <TabsTrigger value="extracted">
+            <Code className="h-4 w-4 mr-2" />
+            Extracted Data
+          </TabsTrigger>
+          <TabsTrigger value="json">
+            <FileJson className="h-4 w-4 mr-2" />
+            Raw JSON
+          </TabsTrigger>
         </TabsList>
+        
         <TabsContent value="table" className="mt-4">
           <ScrollArea className="h-[500px] rounded-md border">
             <DataTable data={data} columns={columns} />
           </ScrollArea>
         </TabsContent>
+        
+        <TabsContent value="extracted" className="mt-4">
+          <ScrollArea className="h-[500px] rounded-md border">
+            <DataTable 
+              data={data.map(item => typeof item.extractedData === 'object' ? item.extractedData : item)} 
+              columns={useMemo(() => {
+                const extractedKeys = Array.from(new Set(
+                  data
+                    .filter(item => item.extractedData)
+                    .flatMap(item => Object.keys(item.extractedData))
+                ));
+                
+                if (extractedKeys.length === 0) return [];
+                
+                const priorityFields = ["name", "phone", "email", "address", "website", "description"];
+                const sortedKeys = [
+                  ...priorityFields.filter(field => extractedKeys.includes(field)),
+                  ...extractedKeys.filter(key => !priorityFields.includes(key)).sort()
+                ];
+                
+                return sortedKeys.map(key => ({
+                  header: key.charAt(0).toUpperCase() + key.slice(1),
+                  accessorKey: key
+                }));
+              }, [data])} 
+            />
+          </ScrollArea>
+        </TabsContent>
+        
         <TabsContent value="json" className="mt-4">
           <ScrollArea className="h-[500px] rounded-md border bg-gray-50 dark:bg-gray-900 p-4">
             <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-800 dark:text-gray-200">

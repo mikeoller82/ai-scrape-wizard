@@ -67,11 +67,17 @@ const extractBusinessData = (pages: any[], config: ScrapeConfig): BusinessData[]
   }
   
   return pages.map(page => {
-    // Default business data object
+    // Default business data object with all fields initialized
     const businessData: BusinessData = {
       name: page.title || 'Unknown',
+      phone: '',
+      email: '',
+      address: '',
       website: page.url || '',
       description: page.summary || page.text?.substring(0, 200) || '',
+      category: '',
+      city: '',
+      state: '',
       industry: config.industry || '',
     };
     
@@ -152,11 +158,17 @@ export const crawlWebsite = async (config: ScrapeConfig): Promise<any[]> => {
     // Process pages into business data format
     const businessData = extractBusinessData(pages, config);
     
-    // Return both raw data and processed data
+    // Return expanded raw data with all available fields for debugging
     return pages.map((page, index) => ({
       rawHtml: page.html || '',
       url: page.url,
-      extractedData: businessData[index] || {}
+      title: page.title || '',
+      text: page.text || '',
+      summary: page.summary || '',
+      metadata: page.metadata || {},
+      extractedData: businessData[index] || {},
+      // Convert the extracted data to a flattened string representation for display
+      extractedDataString: JSON.stringify(businessData[index] || {}, null, 2)
     }));
   } catch (error) {
     console.error('Error during Firecrawl crawl:', error);
