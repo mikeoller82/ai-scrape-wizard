@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,7 +173,6 @@ export function ScrapeForm() {
         firecrawlApiKey: apiKey,
         firecrawlOptions: {
           limit: values.firecrawl.limit,
-          followLinks: values.firecrawl.followLinks,
           maxDepth: values.firecrawl.maxDepth,
           formats: values.firecrawl.formats
         }

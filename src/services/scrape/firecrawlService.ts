@@ -120,14 +120,16 @@ export const crawlWebsite = async (config: ScrapeConfig): Promise<any[]> => {
     console.log('Starting Firecrawl crawl for URL:', config.url);
     const firecrawl = new FirecrawlApp({ apiKey });
     
-    // Configure Firecrawl options
+    // Configure Firecrawl options based on API documentation
+    // Note: Remove followLinks as it's not recognized by the API
     const crawlOptions = {
       limit: config.firecrawlOptions?.limit || 20,
-      followLinks: config.firecrawlOptions?.followLinks || true,
       maxDepth: config.firecrawlOptions?.maxDepth || 2,
       allowedDomains: config.firecrawlOptions?.allowedDomains,
       scrapeOptions: {
-        formats: config.firecrawlOptions?.formats || ['markdown', 'html'],
+        formats: config.firecrawlOptions?.formats?.map(format => 
+          format as "markdown" | "html" | "rawHtml" | "content" | "links" | "screenshot" | "screenshot@fullPage" | "extract" | "json"
+        ) || ["markdown", "html"]
       }
     };
     
