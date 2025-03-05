@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ModelSelector } from "@/components/ModelSelector"; 
 import { DataPreview } from "@/components/DataPreview";
+import { FirecrawlApiKeyForm } from "@/components/FirecrawlApiKeyForm";
 import { 
   Form,
   FormControl,
@@ -30,7 +31,8 @@ import {
   scrapeWebsite, 
   extractDataFromHtml,
   downloadCsv,
-  checkScrapingPermissions
+  checkScrapingPermissions,
+  getApiKey
 } from "@/services/scrapeService";
 import { processWithAI } from "@/services/aiService";
 import { 
@@ -103,12 +105,30 @@ export function ScrapeForm() {
         useRotatingProxies: true,
         useRandomUserAgents: true,
         baseDelaySeconds: 3
+      },
+      firecrawl: {
+        limit: 20,
+        followLinks: true,
+        maxDepth: 2,
+        formats: ["markdown", "html"]
       }
     }
   });
   
   const handleSubmit = async (values: any) => {
     try {
+      // Check if we have a Firecrawl API key
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please enter your Firecrawl API key first",
+          variant: "destructive",
+          duration: 5000
+        });
+        return;
+      }
+      
       setResult({
         ...result,
         status: "loading"
@@ -138,31 +158,7 @@ export function ScrapeForm() {
         }
       }
     
-      // Check scraping permissions first
-      toast({
-        title: "Checking website permissions",
-        description: "Verifying if the website allows scraping...",
-        duration: 3000
-      });
-      
-      const permissionsCheck = await checkScrapingPermissions(searchUrl);
-      if (!permissionsCheck.allowed) {
-        toast({
-          title: "Scraping not allowed",
-          description: permissionsCheck.reason || "This website does not allow scraping.",
-          variant: "destructive",
-          duration: 5000
-        });
-        
-        setResult({
-          ...result,
-          status: "error",
-          error: permissionsCheck.reason || "Scraping not allowed"
-        });
-        return;
-      }
-      
-      // Configure scraping with advanced options
+      // Configure scraping with firecrawl options
       const scrapeConfig: ScrapeConfig = {
         url: searchUrl,
         location: values.location.city || values.location.state ? {
@@ -174,7 +170,14 @@ export function ScrapeForm() {
         respectRobotsTxt: values.advanced.respectRobotsTxt,
         useRotatingProxies: values.advanced.useRotatingProxies,
         useRandomUserAgents: values.advanced.useRandomUserAgents,
-        baseDelaySeconds: values.advanced.baseDelaySeconds
+        baseDelaySeconds: values.advanced.baseDelaySeconds,
+        firecrawlApiKey: apiKey,
+        firecrawlOptions: {
+          limit: values.firecrawl.limit,
+          followLinks: values.firecrawl.followLinks,
+          maxDepth: values.firecrawl.maxDepth,
+          formats: values.firecrawl.formats
+        }
       };
     
       // Configure AI processing
@@ -187,7 +190,7 @@ export function ScrapeForm() {
       // Start scraping
       toast({
         title: "Scraping started",
-        description: `Scraping data from ${searchUrl} using CORS proxy`,
+        description: `Scraping data from ${searchUrl} using Firecrawl`,
         duration: 3000
       });
     
@@ -209,17 +212,14 @@ export function ScrapeForm() {
         return;
       }
       
-      // Extract structured data from raw HTML
-      const extractedData = extractDataFromHtml(rawData, scrapeConfig);
-    
       toast({
         title: "Data extracted",
-        description: `Extracted ${extractedData.length} items. Processing with AI...`,
+        description: `Extracted ${rawData.length} items. Processing with AI...`,
         duration: 3000
       });
     
       // Process with AI
-      const processedData = await processWithAI(extractedData, processingConfig);
+      const processedData = await processWithAI(rawData, processingConfig);
     
       // Update result
       const updatedResult = {
@@ -303,6 +303,8 @@ export function ScrapeForm() {
         </TabsList>
         
         <TabsContent value="scrape" className="space-y-6">
+          <FirecrawlApiKeyForm />
+          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <Card className="overflow-hidden border border-gray-200 dark:border-gray-800 transition-all duration-300 ease-in-out hover:shadow-md">
@@ -322,7 +324,7 @@ export function ScrapeForm() {
                             />
                           </FormControl>
                           <FormDescription>
-                            Enter the URL of the website you want to scrape
+                            Enter the URL of the website you want to scrape with Firecrawl
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -395,7 +397,79 @@ export function ScrapeForm() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Accordion type="single" collapsible defaultValue="selectors">
+                      <Accordion type="single" collapsible defaultValue="firecrawl">
+                        <AccordionItem value="firecrawl">
+                          <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
+                            Firecrawl Options
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                              <FormField
+                                control={form.control}
+                                name="firecrawl.limit"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Page Limit</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="number" 
+                                        min={1} 
+                                        max={100} 
+                                        {...field}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Maximum number of pages to crawl
+                                    </FormDescription>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="firecrawl.maxDepth"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Max Depth</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="number" 
+                                        min={1} 
+                                        max={5} 
+                                        {...field}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      How many links deep to crawl
+                                    </FormDescription>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="firecrawl.followLinks"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Follow Links</FormLabel>
+                                      <FormDescription>
+                                        Crawl links found on the page
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                        
                         <AccordionItem value="selectors">
                           <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
                             Advanced Selectors (Optional)
@@ -695,10 +769,10 @@ export function ScrapeForm() {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={result.status === "loading"}
+                  disabled={result.status === "loading" || !getApiKey()}
                   className="px-8 py-6 text-lg font-medium bg-gray-900 hover:bg-gray-800 text-white transition-all duration-300 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  {result.status === "loading" ? "Processing..." : "Start Scraping"}
+                  {result.status === "loading" ? "Processing..." : "Start Scraping with Firecrawl"}
                 </Button>
               </div>
             </form>

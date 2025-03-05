@@ -48,6 +48,14 @@ export interface ScrapeConfig {
   useRotatingProxies?: boolean;
   useRandomUserAgents?: boolean;
   baseDelaySeconds?: number;
+  firecrawlApiKey?: string;
+  firecrawlOptions?: {
+    limit?: number;
+    followLinks?: boolean;
+    formats?: string[];
+    maxDepth?: number;
+    allowedDomains?: string[];
+  };
 }
 
 export interface ProcessingConfig {
