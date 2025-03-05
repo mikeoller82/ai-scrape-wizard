@@ -1,3 +1,4 @@
+
 export interface BusinessData {
   name: string;
   phone?: string;

@@ -107,7 +107,6 @@ export function ScrapeForm() {
       },
       firecrawl: {
         limit: 20,
-        followLinks: true,
         maxDepth: 2,
         formats: ["markdown", "html"]
       }
@@ -441,26 +440,6 @@ export function ScrapeForm() {
                                     <FormDescription>
                                       How many links deep to crawl
                                     </FormDescription>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="firecrawl.followLinks"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                      <FormLabel>Follow Links</FormLabel>
-                                      <FormDescription>
-                                        Crawl links found on the page
-                                      </FormDescription>
-                                    </div>
-                                    <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
-                                    </FormControl>
                                   </FormItem>
                                 )}
                               />
