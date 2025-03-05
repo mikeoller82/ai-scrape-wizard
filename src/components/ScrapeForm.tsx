@@ -107,8 +107,8 @@ export function ScrapeForm() {
       },
       firecrawl: {
         limit: 20,
-        maxDepth: 2,
-        formats: ["markdown", "html"]
+        maxDepth: 2
+        // Removed formats option as it's not supported by the API
       }
     }
   });
@@ -172,8 +172,8 @@ export function ScrapeForm() {
         firecrawlApiKey: apiKey,
         firecrawlOptions: {
           limit: values.firecrawl.limit,
-          maxDepth: values.firecrawl.maxDepth,
-          formats: values.firecrawl.formats
+          maxDepth: values.firecrawl.maxDepth
+          // Removed formats parameter since it's not supported by the API
         }
       };
     

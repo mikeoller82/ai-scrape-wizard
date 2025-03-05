@@ -53,7 +53,7 @@ export interface ScrapeConfig {
     limit?: number;
     maxDepth?: number;
     allowedDomains?: string[];
-    formats?: string[];
+    // Removed formats property as it's causing the API error
   };
 }
 

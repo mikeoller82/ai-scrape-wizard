@@ -120,13 +120,15 @@ export const crawlWebsite = async (config: ScrapeConfig): Promise<any[]> => {
     console.log('Starting Firecrawl crawl for URL:', config.url);
     const firecrawl = new FirecrawlApp({ apiKey });
     
-    // Configure Firecrawl options
+    // Configure Firecrawl options - REMOVE formats key that's causing the error
     const crawlOptions = {
       limit: config.firecrawlOptions?.limit || 20,
       maxDepth: config.firecrawlOptions?.maxDepth || 2,
-      allowedDomains: config.firecrawlOptions?.allowedDomains,
-      formats: config.firecrawlOptions?.formats || ["markdown", "html"]
+      allowedDomains: config.firecrawlOptions?.allowedDomains
+      // Removed the 'formats' parameter as it's not recognized by the API
     };
+    
+    console.log('Crawl options:', crawlOptions);
     
     // Start the crawl
     const crawlResponse = await firecrawl.crawlUrl(config.url, crawlOptions) as CrawlResponse;
