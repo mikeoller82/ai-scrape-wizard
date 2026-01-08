@@ -57,8 +57,9 @@ export function ScrapeForm() {
   const defaultAiInstructions = 
     "Extract and clean business information from the provided HTML. " +
     "Identify the business name, phone number, email, address, website, " +
-    "city, state, industry/niche, description, and category. Format the data consistently and fill in " +
-    "missing information where possible.";
+    "city, state, industry/niche, description, category, review count, and website quality (poor/no website vs. decent). " +
+    "Prioritize contractors with fewer than 20 reviews and weak or missing websites. " +
+    "Format the data consistently and fill in missing information where possible.";
 
   // Get saved configurations and business data
   const { data: savedScrapeConfigs } = useQuery({
@@ -78,12 +79,16 @@ export function ScrapeForm() {
   
   const form = useForm({
     defaultValues: {
-      url: "https://www.yellowpages.com/search?search_terms=restaurants&geo_location_terms=New+York%2C+NY",
+      url: "",
       location: {
         city: "",
         state: ""
       },
       industry: "",
+      leadCriteria: {
+        maxReviews: 20,
+        requirePoorWebsite: true
+      },
       selectors: {
         container: ".business-card",
         name: ".business-name",
@@ -112,6 +117,14 @@ export function ScrapeForm() {
       }
     }
   });
+
+  const buildLeadSearchUrl = (values: any) => {
+    const industry = values.industry?.trim() || "contractors";
+    const locationParts = [values.location?.city, values.location?.state].filter(Boolean);
+    const location = locationParts.length > 0 ? ` in ${locationParts.join(", ")}` : "";
+    const query = `${industry}${location} Google My Business reviews`;
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  };
   
   const handleSubmit = async (values: any) => {
     try {
@@ -133,27 +146,9 @@ export function ScrapeForm() {
       });
     
       // Build search URL with filters if specified
-      let searchUrl = values.url;
-    
-      // If using Yellow Pages or similar directory, automatically format the URL with filters
-      if (searchUrl.includes("yellowpages.com") || searchUrl.includes("yelp.com")) {
-        const baseUrl = searchUrl.split("?")[0];
-        const industry = values.industry ? encodeURIComponent(values.industry) : "businesses";
-        let location = "";
-      
-        if (values.location.city && values.location.state) {
-          location = `${values.location.city}%2C+${values.location.state}`;
-        } else if (values.location.state) {
-          location = values.location.state;
-        } else if (values.location.city) {
-          location = values.location.city;
-        }
-      
-        if (location) {
-          searchUrl = `${baseUrl}search?search_terms=${industry}&geo_location_terms=${location}`;
-        } else {
-          searchUrl = `${baseUrl}search?search_terms=${industry}`;
-        }
+      let searchUrl = values.url?.trim();
+      if (!searchUrl) {
+        searchUrl = buildLeadSearchUrl(values);
       }
     
       // Configure scraping with firecrawl options
@@ -164,6 +159,7 @@ export function ScrapeForm() {
           state: values.location.state
         } : undefined,
         industry: values.industry || undefined,
+        leadCriteria: values.leadCriteria,
         selectors: values.selectors,
         respectRobotsTxt: values.advanced.respectRobotsTxt,
         useRotatingProxies: values.advanced.useRotatingProxies,
@@ -315,13 +311,13 @@ export function ScrapeForm() {
                           <FormLabel className="text-gray-900 dark:text-gray-100">Website URL</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="https://www.example.com/business-directory"
+                              placeholder="https://www.google.com/search?q=contractors+in+your+city"
                               {...field}
                               className="transition-all duration-200"
                             />
                           </FormControl>
                           <FormDescription>
-                            Enter the URL of the website you want to scrape with Firecrawl
+                            Enter a website or search URL. Leave blank to auto-build a general web search for contractor leads.
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -395,11 +391,11 @@ export function ScrapeForm() {
                     
                     <div className="space-y-2">
                       <Accordion type="single" collapsible defaultValue="firecrawl">
-                        <AccordionItem value="firecrawl">
-                          <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
-                            Firecrawl Options
-                          </AccordionTrigger>
-                          <AccordionContent>
+                      <AccordionItem value="firecrawl">
+                        <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
+                          Firecrawl Options
+                        </AccordionTrigger>
+                        <AccordionContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                               <FormField
                                 control={form.control}
@@ -444,8 +440,56 @@ export function ScrapeForm() {
                                 )}
                               />
                             </div>
-                          </AccordionContent>
-                        </AccordionItem>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="lead-filters">
+                        <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
+                          Lead Filters
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                            <FormField
+                              control={form.control}
+                              name="leadCriteria.maxReviews"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Max Reviews</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={200}
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Only include contractors with review counts at or below this number.
+                                  </FormDescription>
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="leadCriteria.requirePoorWebsite"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <div className="flex items-center justify-between">
+                                    <FormLabel>Require Poor/No Website</FormLabel>
+                                    <FormControl>
+                                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                  </div>
+                                  <FormDescription>
+                                    Filter out businesses with strong websites.
+                                  </FormDescription>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
                         
                         <AccordionItem value="selectors">
                           <AccordionTrigger className="text-gray-900 dark:text-gray-100 font-medium">
