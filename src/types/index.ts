@@ -29,6 +29,10 @@ export interface ScrapeConfig {
     state?: string;
   };
   industry?: string;
+  leadCriteria?: {
+    maxReviews?: number;
+    requirePoorWebsite?: boolean;
+  };
   selectors?: {
     container?: string;
     name?: string;

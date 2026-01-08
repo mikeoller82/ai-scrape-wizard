@@ -61,24 +61,98 @@ export const testApiKey = async (apiKey: string): Promise<boolean> => {
 /**
  * Extract business data from crawled pages
  */
+const extractReviewCount = (text?: string): number | null => {
+  if (!text) {
+    return null;
+  }
+  const match = text.match(/(\d{1,4})\s+reviews?/i);
+  if (!match) {
+    return null;
+  }
+  const count = Number.parseInt(match[1], 10);
+  return Number.isNaN(count) ? null : count;
+};
+
+const normalizeLink = (link: unknown): string | null => {
+  if (!link) {
+    return null;
+  }
+  if (typeof link === 'string') {
+    return link;
+  }
+  if (typeof link === 'object') {
+    const linkObject = link as { href?: string; url?: string };
+    return linkObject.href || linkObject.url || null;
+  }
+  return null;
+};
+
+const extractWebsiteFromMetadata = (metadata: any, pageUrl?: string): string => {
+  const links = metadata?.links;
+  if (!links) {
+    return pageUrl || '';
+  }
+
+  const linkList = Array.isArray(links) ? links : [links];
+  const candidates = linkList
+    .map(normalizeLink)
+    .filter((link): link is string => Boolean(link))
+    .map(link => link.trim())
+    .filter(link => link.length > 0);
+
+  const firstExternal = candidates.find(link => {
+    const lower = link.toLowerCase();
+    if (pageUrl && lower === pageUrl.toLowerCase()) {
+      return false;
+    }
+    return !lower.includes('google.com/maps') && !lower.includes('google.com/search');
+  });
+
+  return firstExternal || pageUrl || '';
+};
+
+const assessWebsiteQuality = (website?: string, text?: string) => {
+  if (!website) {
+    return { hasWebsite: false, websiteQuality: 'none' };
+  }
+
+  const lowerWebsite = website.toLowerCase();
+  const lowerText = text?.toLowerCase() || '';
+  const looksLikeDirectory = /(facebook|instagram|yelp|angi|homeadvisor|thumbtack|bbb\.org)/.test(lowerWebsite);
+  const looksUnderConstruction = /under construction|coming soon|not available|no website/i.test(lowerText);
+
+  if (looksLikeDirectory || looksUnderConstruction) {
+    return { hasWebsite: true, websiteQuality: 'poor' };
+  }
+
+  return { hasWebsite: true, websiteQuality: 'good' };
+};
+
 const extractBusinessData = (pages: any[], config: ScrapeConfig): BusinessData[] => {
   if (!pages || pages.length === 0) {
     return [];
   }
   
   return pages.map(page => {
+    const website = extractWebsiteFromMetadata(page.metadata, page.url);
+    const reviewCount = extractReviewCount(page.text || page.summary);
+    const { hasWebsite, websiteQuality } = assessWebsiteQuality(website, page.text || page.summary);
+
     // Default business data object with all fields initialized
     const businessData: BusinessData = {
       name: page.title || 'Unknown',
       phone: '',
       email: '',
       address: '',
-      website: page.url || '',
+      website,
       description: page.summary || page.text?.substring(0, 200) || '',
       category: '',
       city: '',
       state: '',
       industry: config.industry || '',
+      reviewCount,
+      hasWebsite,
+      websiteQuality
     };
     
     // Extract email if present in content
@@ -109,6 +183,32 @@ const extractBusinessData = (pages: any[], config: ScrapeConfig): BusinessData[]
     
     return businessData;
   });
+};
+
+const applyLeadCriteria = (
+  pages: any[],
+  businessData: BusinessData[],
+  criteria?: ScrapeConfig['leadCriteria']
+) => {
+  if (!criteria) {
+    return pages.map((page, index) => ({ page, data: businessData[index] }));
+  }
+
+  const maxReviews = criteria.maxReviews ?? 20;
+  const requirePoorWebsite = criteria.requirePoorWebsite ?? true;
+
+  return pages
+    .map((page, index) => ({ page, data: businessData[index] }))
+    .filter(({ data }) => {
+      const reviewCount = typeof data.reviewCount === 'number' ? data.reviewCount : null;
+      if (reviewCount === null || reviewCount > maxReviews) {
+        return false;
+      }
+      if (!requirePoorWebsite) {
+        return true;
+      }
+      return data.websiteQuality === 'none' || data.websiteQuality === 'poor';
+    });
 };
 
 /**
@@ -157,18 +257,19 @@ export const crawlWebsite = async (config: ScrapeConfig): Promise<any[]> => {
     
     // Process pages into business data format
     const businessData = extractBusinessData(pages, config);
+    const filteredResults = applyLeadCriteria(pages, businessData, config.leadCriteria);
     
     // Return expanded raw data with all available fields for debugging
-    return pages.map((page, index) => ({
+    return filteredResults.map(({ page, data }, index) => ({
       rawHtml: page.html || '',
       url: page.url,
       title: page.title || '',
       text: page.text || '',
       summary: page.summary || '',
       metadata: page.metadata || {},
-      extractedData: businessData[index] || {},
+      extractedData: data || {},
       // Convert the extracted data to a flattened string representation for display
-      extractedDataString: JSON.stringify(businessData[index] || {}, null, 2)
+      extractedDataString: JSON.stringify(data || {}, null, 2)
     }));
   } catch (error) {
     console.error('Error during Firecrawl crawl:', error);
